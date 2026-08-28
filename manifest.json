@@ -1,14 +1,41 @@
 {
-  "name": "Pastir",
+  "id": "/EF/pastir_v72.html",
+  "name": "Pastir — aplikacija in naprava",
   "short_name": "Pastir",
-  "description": "SAMARIT Pastir - krmilnik elektricne ograje",
-  "start_url": "./",
+  "description": "SAMARIT Pastir — nadzor in upravljanje električnega pastirja preko ESP32 naprave.",
+  "start_url": "./pastir_v72.html",
+  "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#050B07",
+  "orientation": "portrait-primary",
+  "lang": "sl",
+  "dir": "ltr",
+  "background_color": "#161A17",
   "theme_color": "#161A17",
+  "categories": ["utilities", "productivity"],
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }
