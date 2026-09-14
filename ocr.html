@@ -2,34 +2,146 @@
 <html lang="sl">
 <head>
 <meta charset="utf-8">
-<title>Bralec binarne lestvice</title>
+<title>Bralec merila - levo in desno</title>
 <style>
-  body { font-family: sans-serif; margin: 10px; background: #222; color: #eee; }
-  video, canvas#preview { width: 100%; max-width: 720px; display: block;
-                          border-radius: 8px; margin-bottom: 10px; }
-  #rezultat { font-size: 42px; font-weight: bold; color: #4f4; }
-  button { padding: 12px 24px; font-size: 18px; margin-right: 8px; }
-  .info { font-size: 14px; color: #aaa; }
+  body { 
+    font-family: sans-serif; 
+    margin: 0; 
+    background: #111; 
+    color: #eee; 
+    overflow: hidden;
+    height: 100vh;
+  }
+
+  /* Glavni ovoj - razporedi elemente levo in desno */
+  .app-wrapper {
+    display: flex;
+    flex-direction: row;      /* Levo in desno */
+    width: 100vw;
+    height: 100vh;
+    padding: 15px;
+    box-sizing: border-box;
+    gap: 15px;
+  }
+
+  /* LEVA STRAN: Kamera */
+  .camera-container {
+    position: relative;
+    flex: 2;                  /* Zavzame 2/3 širine */
+    height: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 2px solid #444;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    background: #000;
+  }
+
+  #v {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+  }
+
+  #preview {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 2;
+  }
+
+  /* DESNA STRAN: Rezultat in kontrole */
+  #ui {
+    flex: 1;                  /* Zavzame 1/3 širine */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    border: 1px solid #333;
+    padding: 20px;
+    box-sizing: border-box;
+    text-align: center;
+  }
+
+  #rezultat {
+    font-size: 52px;
+    font-weight: bold;
+    color: #4f4;
+    text-shadow: 1px 1px 3px #000;
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+  }
+
+  .hint {
+    font-size: 14px;
+    color: #aaa;
+    margin-top: 10px;
+    line-height: 1.4;
+  }
+
+  #napaka {
+    margin-top: 20px;
+    background: rgba(255,0,0,0.2);
+    color: #f44;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #f44;
+    display: none;
+    text-align: center;
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 14px;
+  }
+
+  /* Na ožjih zaslonih (telefon v pokončnem načinu) se postavi eno pod drugo */
+  @media (max-width: 768px) {
+    .app-wrapper {
+      flex-direction: column;
+    }
+    .camera-container {
+      height: 60vh;
+    }
+    #ui {
+      height: auto;
+      padding: 15px;
+    }
+    #rezultat {
+      font-size: 38px;
+      margin-bottom: 10px;
+    }
+  }
 </style>
 </head>
 <body>
-<h1>Bralec merila</h1>
-<video id="v" autoplay playsinline muted></video>
-<canvas id="preview"></canvas>
-<p>Položaj: <span id="rezultat">–</span></p>
-<button id="start">Zaženi kamero</button>
-<button id="snap">Zajemi in izračunaj</button>
-<p class="info">
-  Poravnaj lestvico tako, da je koda vodoravna in čim bolj pravokotna na kamero.
-  Rdeča črta označuje referenčno točko branja.
-</p>
+
+<div class="app-wrapper">
+  
+  <!-- LEVO: Kamera -->
+  <div class="camera-container">
+    <video id="v" autoplay playsinline muted></video>
+    <canvas id="preview"></canvas>
+  </div>
+
+  <!-- DESNO: Rezultat in navodila -->
+  <div id="ui">
+    <div id="rezultat">– mm</div>
+    <div class="hint">
+      Poravnaj lestvico z rdečim križem v kameri.
+    </div>
+    <div id="napaka"></div>
+  </div>
+</div>
 
 <script>
 const v = document.getElementById('v');
 const c = document.getElementById('preview');
 const out = document.getElementById('rezultat');
+const napaka = document.getElementById('napaka');
 
-document.getElementById('start').onclick = async () => {
+// --- 1. Zagon kamere ---
+async function startCamera() {
   try {
     const s = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: 'environment',
@@ -37,86 +149,97 @@ document.getElementById('start').onclick = async () => {
                height: { ideal: 1080 } }
     });
     v.srcObject = s;
+    v.onloadedmetadata = () => {
+      c.width = v.videoWidth;
+      c.height = v.videoHeight;
+      loop();
+    };
   } catch (e) {
-    alert('Napaka pri dostopu do kamere: ' + e.message);
+    napaka.style.display = 'block';
+    napaka.textContent = 'Napaka pri dostopu do kamere: ' + e.message;
   }
-};
+}
 
+// --- 2. Pomožne funkcije za branje ---
 function grayToBin(g) {
   let b = g;
   while (g >>= 1) b ^= g;
   return b;
 }
 
-// Povprečna svetlost kvadratka (0 = črn, 255 = bel)
 function brightness(ctx, x, y, w, h) {
+  if (x < 0 || y < 0 || x + w > c.width || y + h > c.height) return 255;
   const d = ctx.getImageData(x, y, w, h).data;
   let sum = 0;
   for (let i = 0; i < d.length; i += 4) sum += (d[i] + d[i+1] + d[i+2]) / 3;
   return sum / (d.length / 4);
 }
 
-// Prebere en bit (0 = bel, 1 = črn)
 function readBit(ctx, x, y, w, h) {
   return brightness(ctx, x, y, w, h) < 128 ? 1 : 0;
 }
 
-document.getElementById('snap').onclick = () => {
-  if (!v.videoWidth) { alert('Kamera še ni pripravljena.'); return; }
-  c.width  = v.videoWidth;
-  c.height = v.videoHeight;
-  const ctx = c.getContext('2d');
-  ctx.drawImage(v, 0, 0);
+// --- 3. Glavna zanka (risanje v živo) ---
+let ROW_PX = 20;   
+let CELL_PX = 20;  
 
-  // --- Predpostavke za demo ---
-  // Koda je na sredini slike, poravnana vodoravno.
-  // Višina vrstice v pikslih (5 mm) - izmeri jo enkrat in vnesi,
-  // ali jo oceni iz velikosti kode na sliki.
-  // Za demo vzamemo, da so vrstice visoke 20 px.
-  const ROW_PX  = 20;                 // višina ene 5 mm vrstice v pikslih
-  const CELL_PX = 20;                 // širina enega stolpca v pikslih
-  const xRef    = Math.floor(c.width  / 2);
-  const yRef    = Math.floor(c.height / 2) - 4 * ROW_PX;
+function loop() {
+  if (v.readyState === v.HAVE_ENOUGH_DATA) {
+    const ctx = c.getContext('2d');
+    
+    ctx.drawImage(v, 0, 0, c.width, c.height);
 
-  // Branje fine 4-bitne Gray kode
-  let fineGray = 0;
-  for (let bit = 0; bit < 4; bit++) {
-    const b = readBit(ctx, xRef, yRef + bit * ROW_PX, CELL_PX, ROW_PX);
-    fineGray |= b << bit;
+    const xRef = Math.floor(c.width / 2);
+    const yRef = Math.floor(c.height / 2) - (4 * ROW_PX); 
+
+    let fineGray = 0;
+    for (let bit = 0; bit < 4; bit++) {
+      const b = readBit(ctx, xRef, yRef + bit * ROW_PX, CELL_PX, ROW_PX);
+      fineGray |= b << bit;
+    }
+
+    let coarseGray = 0;
+    for (let bit = 0; bit < 4; bit++) {
+      const b = readBit(ctx, xRef, yRef + (4 + bit) * ROW_PX, CELL_PX, ROW_PX);
+      coarseGray |= b << bit;
+    }
+
+    const yHalf = yRef + 8 * ROW_PX;
+    const topVal = brightness(ctx, xRef, yHalf, CELL_PX, ROW_PX / 2);
+    const botVal = brightness(ctx, xRef, yHalf + ROW_PX / 2, CELL_PX, ROW_PX / 2);
+    const half = topVal > botVal ? 0 : 1;
+
+    const fine = grayToBin(fineGray);
+    const coarse = grayToBin(coarseGray);
+    const col = coarse * 16 + fine;
+    const mm = col * 5 + half * 2.5;
+
+    out.textContent = mm.toFixed(1) + ' mm';
+
+    // Risanje rdečega križa in okvirja
+    ctx.strokeStyle = 'red';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(xRef, yRef, CELL_PX, 8 * ROW_PX);
+    
+    ctx.beginPath();
+    ctx.moveTo(xRef - 50, yRef + 4 * ROW_PX);
+    ctx.lineTo(xRef + CELL_PX + 50, yRef + 4 * ROW_PX);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(xRef + CELL_PX / 2, yRef - 20);
+    ctx.lineTo(xRef + CELL_PX / 2, yRef + 8 * ROW_PX + 20);
+    ctx.stroke();
+
+    ctx.fillStyle = 'red';
+    ctx.font = 'bold 32px sans-serif';
+    ctx.fillText(mm.toFixed(1) + ' mm', xRef + CELL_PX + 15, yRef + 4 * ROW_PX - 10);
   }
-  // Branje grobe 4-bitne Gray kode
-  let coarseGray = 0;
-  for (let bit = 0; bit < 4; bit++) {
-    const b = readBit(ctx, xRef, yRef + (4 + bit) * ROW_PX, CELL_PX, ROW_PX);
-    coarseGray |= b << bit;
-  }
-  // Half-bit: primerjamo zgornjo in spodnjo 2,5 mm celico
-  const yHalf   = yRef + 8 * ROW_PX;
-  const topVal  = brightness(ctx, xRef, yHalf,                 CELL_PX, ROW_PX / 2);
-  const botVal  = brightness(ctx, xRef, yHalf + ROW_PX / 2,    CELL_PX, ROW_PX / 2);
-  const half    = topVal > botVal ? 0 : 1;   // 0 = zgornja, 1 = spodnja
 
-  const fine   = grayToBin(fineGray);
-  const coarse = grayToBin(coarseGray);
-  const col    = coarse * 16 + fine;
-  const mm     = col * 5 + half * 2.5;
+  requestAnimationFrame(loop);
+}
 
-  out.textContent = mm.toFixed(1) + ' mm';
-
-  // --- Vizualna povratna informacija ---
-  ctx.strokeStyle = 'red';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(xRef, yRef, CELL_PX, 8 * ROW_PX + ROW_PX);
-  ctx.beginPath();
-  ctx.moveTo(xRef + CELL_PX + 5, yRef);
-  ctx.lineTo(xRef + CELL_PX + 5, yRef + 9 * ROW_PX);
-  ctx.stroke();
-
-  // Prikaz besedila
-  ctx.fillStyle = 'red';
-  ctx.font = '28px sans-serif';
-  ctx.fillText(mm.toFixed(1) + ' mm', xRef + CELL_PX + 12, yRef + 32);
-};
+startCamera();
 </script>
 </body>
 </html>
