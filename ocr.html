@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="utf-8">
+<title>Bralec binarne lestvice</title>
+<style>
+  body { font-family: sans-serif; margin: 10px; background: #222; color: #eee; }
+  video, canvas#preview { width: 100%; max-width: 720px; display: block;
+                          border-radius: 8px; margin-bottom: 10px; }
+  #rezultat { font-size: 42px; font-weight: bold; color: #4f4; }
+  button { padding: 12px 24px; font-size: 18px; margin-right: 8px; }
+  .info { font-size: 14px; color: #aaa; }
+</style>
+</head>
+<body>
+<h1>Bralec merila</h1>
+<video id="v" autoplay playsinline muted></video>
+<canvas id="preview"></canvas>
+<p>Položaj: <span id="rezultat">–</span></p>
+<button id="start">Zaženi kamero</button>
+<button id="snap">Zajemi in izračunaj</button>
+<p class="info">
+  Poravnaj lestvico tako, da je koda vodoravna in čim bolj pravokotna na kamero.
+  Rdeča črta označuje referenčno točko branja.
+</p>
+
+<script>
+const v = document.getElementById('v');
+const c = document.getElementById('preview');
+const out = document.getElementById('rezultat');
+
+document.getElementById('start').onclick = async () => {
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment',
+               width:  { ideal: 1920 },
+               height: { ideal: 1080 } }
+    });
+    v.srcObject = s;
+  } catch (e) {
+    alert('Napaka pri dostopu do kamere: ' + e.message);
+  }
+};
+
+function grayToBin(g) {
+  let b = g;
+  while (g >>= 1) b ^= g;
+  return b;
+}
+
+// Povprečna svetlost kvadratka (0 = črn, 255 = bel)
+function brightness(ctx, x, y, w, h) {
+  const d = ctx.getImageData(x, y, w, h).data;
+  let sum = 0;
+  for (let i = 0; i < d.length; i += 4) sum += (d[i] + d[i+1] + d[i+2]) / 3;
+  return sum / (d.length / 4);
+}
+
+// Prebere en bit (0 = bel, 1 = črn)
+function readBit(ctx, x, y, w, h) {
+  return brightness(ctx, x, y, w, h) < 128 ? 1 : 0;
+}
+
+document.getElementById('snap').onclick = () => {
+  if (!v.videoWidth) { alert('Kamera še ni pripravljena.'); return; }
+  c.width  = v.videoWidth;
+  c.height = v.videoHeight;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(v, 0, 0);
+
+  // --- Predpostavke za demo ---
+  // Koda je na sredini slike, poravnana vodoravno.
+  // Višina vrstice v pikslih (5 mm) - izmeri jo enkrat in vnesi,
+  // ali jo oceni iz velikosti kode na sliki.
+  // Za demo vzamemo, da so vrstice visoke 20 px.
+  const ROW_PX  = 20;                 // višina ene 5 mm vrstice v pikslih
+  const CELL_PX = 20;                 // širina enega stolpca v pikslih
+  const xRef    = Math.floor(c.width  / 2);
+  const yRef    = Math.floor(c.height / 2) - 4 * ROW_PX;
+
+  // Branje fine 4-bitne Gray kode
+  let fineGray = 0;
+  for (let bit = 0; bit < 4; bit++) {
+    const b = readBit(ctx, xRef, yRef + bit * ROW_PX, CELL_PX, ROW_PX);
+    fineGray |= b << bit;
+  }
+  // Branje grobe 4-bitne Gray kode
+  let coarseGray = 0;
+  for (let bit = 0; bit < 4; bit++) {
+    const b = readBit(ctx, xRef, yRef + (4 + bit) * ROW_PX, CELL_PX, ROW_PX);
+    coarseGray |= b << bit;
+  }
+  // Half-bit: primerjamo zgornjo in spodnjo 2,5 mm celico
+  const yHalf   = yRef + 8 * ROW_PX;
+  const topVal  = brightness(ctx, xRef, yHalf,                 CELL_PX, ROW_PX / 2);
+  const botVal  = brightness(ctx, xRef, yHalf + ROW_PX / 2,    CELL_PX, ROW_PX / 2);
+  const half    = topVal > botVal ? 0 : 1;   // 0 = zgornja, 1 = spodnja
+
+  const fine   = grayToBin(fineGray);
+  const coarse = grayToBin(coarseGray);
+  const col    = coarse * 16 + fine;
+  const mm     = col * 5 + half * 2.5;
+
+  out.textContent = mm.toFixed(1) + ' mm';
+
+  // --- Vizualna povratna informacija ---
+  ctx.strokeStyle = 'red';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(xRef, yRef, CELL_PX, 8 * ROW_PX + ROW_PX);
+  ctx.beginPath();
+  ctx.moveTo(xRef + CELL_PX + 5, yRef);
+  ctx.lineTo(xRef + CELL_PX + 5, yRef + 9 * ROW_PX);
+  ctx.stroke();
+
+  // Prikaz besedila
+  ctx.fillStyle = 'red';
+  ctx.font = '28px sans-serif';
+  ctx.fillText(mm.toFixed(1) + ' mm', xRef + CELL_PX + 12, yRef + 32);
+};
+</script>
+</body>
+</html>
