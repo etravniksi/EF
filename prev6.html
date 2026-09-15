@@ -4,52 +4,75 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#111">
-<title>Premerka – AVTO</title>
+<title>Premerka v10</title>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin:0; padding:0; font-family:-apple-system,Roboto,sans-serif;
     background:#111; color:#eee; overflow-x:hidden; touch-action:manipulation; }
-  body { display:flex; flex-direction:column; align-items:center; padding:8px 4px 20px; }
-  .camera-wrap { position:relative; width:90vw; max-width:560px;
+  body { display:flex; flex-direction:column; align-items:center; padding:6px 4px 20px; }
+
+  /* GLAVA Z VERSIJO IN ČASOM */
+  .header {
+    width:100vw; max-width:640px;
+    display:flex; justify-content:space-between; align-items:center;
+    padding:6px 12px; background:#000; border-radius:8px;
+    font-family:ui-monospace,monospace; font-size:13px; color:#8f8;
+    margin-bottom:6px;
+  }
+  .header .ver { color:#4f4; font-weight:bold; font-size:15px; }
+  .header .time { color:#aaa; }
+
+  .camera-wrap {
+    position:relative; width:90vw; max-width:560px;
     background:#000; border:2px solid #333; border-radius:12px;
-    overflow:hidden; margin-bottom:10px; }
-  #v { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:contain; display:none; }
-  #overlay { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:2; }
+    overflow:hidden; margin-bottom:10px; aspect-ratio:4/3;
+  }
+  #v { position:absolute; top:0; left:0; width:100%; height:100%;
+       object-fit: cover; }
+  #overlay { position:absolute; top:0; left:0; width:100%; height:100%;
+             pointer-events:none; z-index:2; }
   #process { display:none; }
-  .controls { width:100vw; max-width:640px; display:flex; flex-direction:column; gap:10px; padding:0 12px; }
+
+  .controls { width:100vw; max-width:640px; display:flex; flex-direction:column; gap:8px; padding:0 12px; }
   .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-  button { padding:14px 18px; font-size:clamp(15px,4vw,20px); border:none; border-radius:12px;
-    background:#4f4; color:#111; font-weight:bold; box-shadow:0 4px 0 #2a2; flex:1;
-    min-height:52px; white-space:nowrap; }
-  button:active { transform:translateY(3px); box-shadow:0 2px 0 #2a2; }
-  button.alt { background:#48f; color:#fff; box-shadow:0 4px 0 #25a; }
-  button.export { background:#f90; color:#111; box-shadow:0 4px 0 #a60; }
-  button.small { flex:0 0 auto; min-width:auto; padding:10px 16px; font-size:14px; }
-  select { flex:1; min-width:120px; padding:12px 14px; font-size:15px;
-    background:#222; color:#eee; border:2px solid #444; border-radius:10px; -webkit-appearance:none; }
+  button { padding:12px 16px; font-size:clamp(14px,3.8vw,18px); border:none; border-radius:10px;
+    background:#4f4; color:#111; font-weight:bold; box-shadow:0 3px 0 #2a2; flex:1;
+    min-height:48px; white-space:nowrap; }
+  button:active { transform:translateY(2px); box-shadow:0 1px 0 #2a2; }
+  button.alt { background:#48f; color:#fff; box-shadow:0 3px 0 #25a; }
+  button.export { background:#f90; color:#111; box-shadow:0 3px 0 #a60; }
+  button.small { flex:0 0 auto; min-width:auto; padding:10px 14px; font-size:14px; }
+  select { flex:1; min-width:120px; padding:10px 12px; font-size:14px;
+    background:#222; color:#eee; border:2px solid #444; border-radius:8px; -webkit-appearance:none; }
   input[type=range] { -webkit-appearance:none; appearance:none; flex:1; min-width:100px;
-    height:60px; background:transparent; margin:0; touch-action:none; }
-  input[type=range]::-webkit-slider-runnable-track { height:20px; background:#333;
-    border-radius:10px; border:2px solid #555; }
+    height:52px; background:transparent; margin:0; touch-action:none; }
+  input[type=range]::-webkit-slider-runnable-track { height:18px; background:#333;
+    border-radius:9px; border:2px solid #555; }
   input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; appearance:none;
-    width:30px; height:30px; background:#48f; border:3px solid #fff;
-    border-radius:50%; margin-top:-8px; }
-  #rezultat { font-size:clamp(34px,10vw,56px); font-weight:bold; color:#4f4; }
-  #totalVal, .big { font-size:clamp(26px,7vw,44px); font-weight:bold; color:#4f4; }
-  .val { font-size:clamp(16px,4.5vw,26px); font-weight:bold; color:#4f4; }
-  .label { font-size:clamp(14px,4vw,20px); color:#bbb; font-weight:bold; min-width:90px; flex-shrink:0; }
-  #status { font-size:clamp(12px,3.3vw,16px); color:#888; margin-left:auto; }
-  .warn { color:#fa0; font-weight:bold; font-size:clamp(14px,4vw,20px); }
-  #testOut { font-family:ui-monospace,monospace; font-size:clamp(10px,2.7vw,13px);
+    width:28px; height:28px; background:#48f; border:3px solid #fff;
+    border-radius:50%; margin-top:-7px; }
+  #rezultat { font-size:clamp(32px,9vw,52px); font-weight:bold; color:#4f4; }
+  #totalVal, .big { font-size:clamp(24px,6.5vw,40px); font-weight:bold; color:#4f4; }
+  .val { font-size:clamp(15px,4vw,24px); font-weight:bold; color:#4f4; }
+  .label { font-size:clamp(13px,3.8vw,18px); color:#bbb; font-weight:bold; min-width:80px; flex-shrink:0; }
+  #status { font-size:clamp(11px,3vw,14px); color:#888; margin-left:auto; }
+  .warn { color:#fa0; font-weight:bold; font-size:clamp(13px,3.8vw,18px); }
+  #testOut { font-family:ui-monospace,monospace; font-size:11px;
     color:#8f8; white-space:pre; max-height:45vh; overflow:auto; background:#000;
-    padding:10px; border-radius:10px; line-height:1.35; width:100%; }
-  .debug-toggle { display:flex; align-items:center; gap:8px; font-size:15px; color:#bbb; }
-  input[type=checkbox] { width:22px; height:22px; }
+    padding:8px; border-radius:8px; line-height:1.3; width:100%; }
+  .debug-toggle { display:flex; align-items:center; gap:6px; font-size:14px; color:#bbb; }
+  input[type=checkbox] { width:20px; height:20px; }
 </style>
 </head>
 <body>
 
-<div class="camera-wrap" id="camWrap">
+<!-- GLAVA -->
+<div class="header">
+  <span class="ver">v10</span>
+  <span class="time" id="clock">–</span>
+</div>
+
+<div class="camera-wrap">
   <video id="v" autoplay playsinline muted></video>
   <canvas id="overlay"></canvas>
 </div>
@@ -60,7 +83,7 @@
 
   <div class="row">
     <button id="orientBtn" class="small">Vodoravno</button>
-    <button id="exportBtn" class="export">Izvozi A4 (JPG)</button>
+    <button id="exportBtn" class="export">Izvozi A4</button>
   </div>
 
   <div class="row">
@@ -69,49 +92,30 @@
   </div>
 
   <div class="row">
-    <label class="debug-toggle" style="font-size:18px;color:#4f4;">
+    <label class="debug-toggle" style="font-size:16px;color:#4f4;">
       <input type="checkbox" id="autoChk" checked>
       AVTOMATIKA
     </label>
   </div>
 
   <div class="row">
-    <span class="label">Debelina</span>
-    <input type="range" id="lineThick" min="1" max="12" step="1" value="4">
-    <span id="lineThickVal" class="val">4 px</span>
+    <label class="debug-toggle">
+      <input type="checkbox" id="contrastChk" checked> Kontrast
+    </label>
+    <label class="debug-toggle">
+      <input type="checkbox" id="debugChk" checked> Debug
+    </label>
   </div>
 
-  <div class="row">
-    <span class="label">Velikost</span>
-    <input type="range" id="roiSize" min="10" max="80" step="1" value="35" disabled>
-    <span id="roiSizeVal" class="val">35 %</span>
-  </div>
-  <div class="row">
-    <span class="label">Pomik</span>
-    <input type="range" id="roiOffset" min="0" max="100" step="1" value="50" disabled>
-    <span id="roiOffsetVal" class="val">50 %</span>
-  </div>
-
-  <div class="row">
-    <span class="label">Threshold</span>
-    <input type="range" id="thSlider" min="0" max="255" step="1" value="128" disabled>
-    <span id="thVal" class="val">128</span>
-  </div>
   <div class="row">
     <span class="label">Offset</span>
     <input type="range" id="thOffset" min="-60" max="60" step="1" value="0">
     <span id="thOffsetVal" class="val">0</span>
   </div>
-
   <div class="row">
-    <label class="debug-toggle">
-      <input type="checkbox" id="contrastChk" checked>
-      Kontrast
-    </label>
-    <label class="debug-toggle">
-      <input type="checkbox" id="debugChk" checked>
-      Debug
-    </label>
+    <span class="label">Debelina</span>
+    <input type="range" id="lineThick" min="1" max="12" step="1" value="4">
+    <span id="lineThickVal" class="val">4 px</span>
   </div>
 
   <div class="row">
@@ -128,8 +132,6 @@
     <span id="totalVal" class="val big">0.00 mm</span></div>
   <div class="row"><span class="label">Prebrano</span>
     <span id="rezultat">–</span></div>
-  <div class="row"><span class="label">Napaka</span>
-    <span id="napakaVal" class="val">–</span></div>
   <div class="row"><span class="label">δ</span>
     <span id="deltaVal" class="val">–</span>
     <span id="boundaryWarn" class="warn"></span></div>
@@ -138,11 +140,28 @@
 </div>
 
 <script>
+const VERSION = 'v10';
+const BUILD_TIME = new Date().toLocaleString('sl-SI', {
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', second: '2-digit'
+});
+
+// Prikaz ure v glavi (osvežuje se)
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    BUILD_TIME + '  (zdaj: ' +
+    now.toLocaleTimeString('sl-SI') + ')';
+}
+updateClock();
+setInterval(updateClock, 1000);
+
 const $ = id => document.getElementById(id);
 const CODE_OFFSET = 100;
 const P_MIN_MM = 0, P_MAX_MM = 1000;
 const DRAW_MIN_MM = 70, DRAW_MAX_MM = 1130;
 
+// ---------- De Bruijn B(2,8) ----------
 function deBruijn(k, n) {
   const a = new Array(n+1).fill(0), seq = [];
   (function db(t,p){
@@ -160,18 +179,18 @@ for (let i = 0; i < 256; i++) {
   LOOKUP[w] = i;
 }
 
+// ---------- Elementi ----------
 const video    = $('v');
 const overlay  = $('overlay');
 const ovctx    = overlay.getContext('2d');
 const processC = $('process');
 const pctx     = processC.getContext('2d', { willReadFrequently:true });
-const camWrap  = $('camWrap');
+const camWrap  = document.querySelector('.camera-wrap');
 const outEl    = $('rezultat');
 const statusEl = $('status');
 
 const PX_PER_MM = 10, IDEAL_CELL_PX = 50, ROW_PX = 50, Y0 = 50;
-const Y_ROW0 = Y0, Y_ROW1 = Y0+ROW_PX, Y_ROW2 = Y0+2*ROW_PX;
-const yC0 = Y_ROW0+25, yC1 = Y_ROW1+25, yC2 = Y_ROW2+25;
+const yC0 = Y0+25, yC1 = Y0+50+25, yC2 = Y0+100+25;
 
 let mode = 'camera';
 let orientation = 'h';
@@ -180,30 +199,49 @@ let lineThick = 4;
 let debugOn = true;
 let contrastOn = true;
 let autoMode = true;
-let manualTh = 128;
 let thOffset = 0;
 
-// ---------- Predpomnjeni frame ----------
-let frameData = null;
-let FW = 0, FH = 0;
+// ---------- Predpomnilnik slike ----------
+let frameData = null, FW = 0, FH = 0;
 
 function cacheFrame() {
-  if (video.readyState < 2) return false;
+  if (processC.width < 2) return false;
   FW = processC.width; FH = processC.height;
   frameData = pctx.getImageData(0, 0, FW, FH);
   return true;
 }
-
 function px(x, y) {
   x = x|0; y = y|0;
   if (x < 0 || y < 0 || x >= FW || y >= FH) return 255;
   const idx = (y * FW + x) * 4;
-  const d = frameData.data;
-  return (d[idx] + d[idx+1] + d[idx+2]) / 3;
+  return (frameData.data[idx] + frameData.data[idx+1] + frameData.data[idx+2]) / 3;
 }
 
-function pxBit(x, y) {
-  return px(x, y) < 128 ? 1 : 0;
+// ---------- Otsu na območju ----------
+function otsuRegion(x0, y0, x1, y1) {
+  const hist = new Array(256).fill(0);
+  let total = 0;
+  x0 = Math.max(0, x0|0); y0 = Math.max(0, y0|0);
+  x1 = Math.min(FW, x1|0); y1 = Math.min(FH, y1|0);
+  for (let y = y0; y < y1; y++)
+    for (let x = x0; x < x1; x++) {
+      const v = Math.round(px(x, y));
+      hist[Math.min(255, Math.max(0, v))]++;
+      total++;
+    }
+  if (total === 0) return 128;
+  let sum = 0;
+  for (let i = 0; i < 256; i++) sum += i * hist[i];
+  let sumB = 0, wB = 0, max = 0, threshold = 128;
+  for (let t = 0; t < 256; t++) {
+    wB += hist[t]; if (wB === 0) continue;
+    const wF = total - wB; if (wF === 0) break;
+    sumB += t * hist[t];
+    const mB = sumB / wB, mF = (sum - sumB) / wF;
+    const between = wB * wF * (mB - mF) * (mB - mF);
+    if (between > max) { max = between; threshold = t; }
+  }
+  return threshold;
 }
 
 // ---------- Simulator ----------
@@ -218,50 +256,21 @@ function drawSimulator(P) {
     if (col < cMin || col > cMax) continue;
     const x = xOf(col), w = ROW_PX;
     pctx.fillStyle = DB[col & 0xFF] ? 'black' : 'white';
-    pctx.fillRect(x, Y_ROW0, w, ROW_PX);
+    pctx.fillRect(x, Y0, w, ROW_PX);
     pctx.fillStyle = DB[(col+4) & 0xFF] ? 'black' : 'white';
-    pctx.fillRect(x, Y_ROW1, w, ROW_PX);
+    pctx.fillRect(x, Y0+ROW_PX, w, ROW_PX);
     pctx.fillStyle = (col & 1) ? 'white' : 'black';
-    pctx.fillRect(x, Y_ROW2, w, ROW_PX);
+    pctx.fillRect(x, Y0+2*ROW_PX, w, ROW_PX);
   }
-}
-
-// ---------- Otsu ----------
-function otsuThreshold(region, W, H) {
-  // region = {x0,y0,x1,y1}
-  const hist = new Array(256).fill(0);
-  let total = 0;
-  for (let y = region.y0; y < region.y1; y++)
-    for (let x = region.x0; x < region.x1; x++) {
-      const v = Math.round(px(x, y));
-      hist[Math.min(255, Math.max(0, v))]++;
-      total++;
-    }
-  if (total === 0) return 128;
-  let sum = 0;
-  for (let i = 0; i < 256; i++) sum += i * hist[i];
-  let sumB = 0, wB = 0, max = 0, threshold = 128;
-  for (let t = 0; t < 256; t++) {
-    wB += hist[t];
-    if (wB === 0) continue;
-    const wF = total - wB;
-    if (wF === 0) break;
-    sumB += t * hist[t];
-    const mB = sumB / wB;
-    const mF = (sum - sumB) / wF;
-    const between = wB * wF * (mB - mF) * (mB - mF);
-    if (between > max) { max = between; threshold = t; }
-  }
-  return threshold;
 }
 
 // ---------- Simulator branje ----------
 function readBitSim(yc, xC) {
   let s=0,n=0;
-  for (const dx of [-8,-4,4,8]) { s += pxBit(xC+dx, yc); n++; }
+  for (const dx of [-8,-4,4,8]) { s += (px(xC+dx, yc) < 128) ? 1 : 0; n++; }
   return s > n/2 ? 1 : 0;
 }
-function readWindowAt(Pphys, cStart) {
+function readWindowSim(Pphys, cStart) {
   const cx = processC.width/2; let bits = 0;
   for (let i=0;i<4;i++) {
     const xc = cx + ((cStart+i)*5 + 2.5 - Pphys) * PX_PER_MM;
@@ -270,14 +279,7 @@ function readWindowAt(Pphys, cStart) {
   }
   return { bits, c: LOOKUP[bits] };
 }
-function findCellEdgesSim(xC, yc) {
-  const col = pxBit(xC, yc);
-  let L=null, R=null;
-  for (let d=1;d<80;d++) if (pxBit(xC-d,yc)!==col){L=xC-d+0.5;break;}
-  for (let d=1;d<80;d++) if (pxBit(xC+d,yc)!==col){R=xC+d-0.5;break;}
-  return { L, R };
-}
-function readDynamic(P) {
+function readSimulator(P) {
   const Pphys = P + CODE_OFFSET;
   const cx = processC.width/2;
   const N = Math.min(Math.floor((processC.width - 100)/50), 15);
@@ -286,7 +288,7 @@ function readDynamic(P) {
   const wins = [];
   for (let k=0;k<N-3;k++) {
     const cs = cApprox - halfN + k;
-    wins.push({ k, cs, ...readWindowAt(Pphys, cs) });
+    wins.push({ k, cs, ...readWindowSim(Pphys, cs) });
   }
   let bestS=0,bestL=0,curS=0;
   for (let k=0;k<wins.length;k++) {
@@ -312,13 +314,17 @@ function readDynamic(P) {
   const offset = Math.max(0, Math.min(7, cApprox-cStart));
   const cRef = cStart + offset;
   const xc = cx + (cRef*5 + 2.5 - Pphys) * PX_PER_MM;
-  const e = findCellEdgesSim(xc, yC2);
+  const colBit = (px(xc, yC2) < 128) ? 1 : 0;
+  let L=null, R=null;
+  for (let d=1;d<80;d++) if (((px(xc-d,yC2)<128)?1:0) !== colBit) { L=xc-d+0.5; break; }
+  for (let d=1;d<80;d++) if (((px(xc+d,yC2)<128)?1:0) !== colBit) { R=xc+d-0.5; break; }
   let delta=0, w=null, cal=1;
-  if (e.L!==null && e.R!==null) {
-    w = e.R-e.L; cal = w/IDEAL_CELL_PX;
-    delta = Math.max(0, Math.min(5, (cx-e.L)/w*5));
+  if (L!==null && R!==null) {
+    w = R-L; cal = w/IDEAL_CELL_PX;
+    delta = Math.max(0, Math.min(5, (cx-L)/w*5));
   }
-  const mm_phys = cRef*5 + delta, mm = mm_phys - CODE_OFFSET;
+  const mm_phys = cRef*5 + delta;
+  const mm = mm_phys - CODE_OFFSET;
   const bitPoints = [];
   for (let i=0;i<4;i++) {
     const xc2 = cx + ((cStart+i)*5+2.5 - Pphys)*PX_PER_MM;
@@ -326,107 +332,122 @@ function readDynamic(P) {
     bitPoints.push({ x:xc2, y:yC1, bit:i+4 });
   }
   return {
-    ok:true, c:cRef, cStart, cRef, offset, bits:chosen.bits, cApprox,
-    chosenK:chosen.k, bestLen:bestL, bestStart:bestS,
+    ok:true, c:cRef, cStart, cRef, offset, bits:chosen.bits,
+    bestLen:bestL, bestStart:bestS,
     numWindows:wins.length, validWindows:wins.filter(x=>x.c>=0).length,
-    allC:wins.map(x=>x.c), delta, widthPx:w, calFactor:cal,
-    mm, mm_phys, bitPoints, refLeft:e.L, refRight:e.R,
-    gridLines:[], yRow0:yC0, yRow1:yC1, yRow2:yC2,
-    thresholds:{ th0:128, th1:128, th2:128 },
-    rowH: ROW_PX, detected:false
+    allC:wins.map(x=>x.c), delta, mm, mm_phys,
+    bitPoints, refLeft:L, refRight:R, gridLines:[],
+    yRow0:yC0, yRow1:yC1, yRow2:yC2,
+    rowH: ROW_PX, cellPx: IDEAL_CELL_PX,
+    thresholds:{th0:128,th1:128,th2:128},
+    detected:true, detectedTrans:wins.length
   };
 }
 
-// ---------- AVTOMATSKO BRANJE ----------
+// ---------- AVTOMATSKO BRANJE IZ KAMERE ----------
 function readFromCamera() {
   const W = processC.width, H = processC.height, cx = Math.floor(W/2);
 
-  // Global threshold
-  const globalTh = otsuThreshold({x0:4, y0:4, x1:W-4, y1:H-4}, W, H);
+  // 1) Globalni Otsu
+  const globalTh = otsuRegion(4, 4, W-4, H-4);
 
-  // ---- Najdi CLOCK: y z največ prehodi ----
+  // 2) Za vsak y: lokalni threshold + prehodi
   const yProfile = new Int16Array(H);
+  const yProfileTh = new Int16Array(H);
   let bestY = -1, bestT = 0;
-  for (let y = 6; y < H - 6; y++) {
+  for (let y = 4; y < H - 4; y++) {
+    // Lokalni threshold = (min+max)/2 v vrstici
+    let mn = 255, mx = 0;
+    for (let x = 6; x < W - 6; x += 4) {
+      const v = px(x, y);
+      if (v < mn) mn = v;
+      if (v > mx) mx = v;
+    }
+    const th = (mn + mx) / 2;
     let count = 0;
-    let prev = px(2, y) < globalTh ? 1 : 0;
-    for (let x = 4; x < W - 4; x += 2) {
-      const v = px(x, y) < globalTh ? 1 : 0;
+    let prev = px(4, y) < th ? 1 : 0;
+    for (let x = 6; x < W - 4; x += 2) {
+      const v = px(x, y) < th ? 1 : 0;
       if (v !== prev) count++;
       prev = v;
     }
     yProfile[y] = count;
+    yProfileTh[y] = Math.round(th);
     if (count > bestT) { bestT = count; bestY = y; }
   }
+
+  // 3) Diagnostika: top 5 y profil
+  const top = [];
+  for (let y = 4; y < H-4; y++) top.push({ y, t: yProfile[y] });
+  top.sort((a,b) => b.t - a.t);
+  const topInfo = 'top y: ' + top.slice(0,5).map(o => 'y='+o.y+'('+o.t+')').join(' ');
+
   if (bestY < 0 || bestT < 6) {
-    return { ok:false, reason:'CLOCK ni najden (bestT='+bestT+')',
+    return { ok:false,
+             reason:'CLOCK ni najden (bestT='+bestT+', globalTh='+globalTh.toFixed(0)+')',
+             info: topInfo,
              thresholds:{th0:globalTh, th1:globalTh, th2:globalTh},
              yRow0:0, yRow1:0, yRow2:0, rowH:0, detected:false };
   }
 
-  // Zgladi y CLOCK: težišče vrhov v oknu ±5
-  let sumW = 0, sumYW = 0;
+  // Zgladi bestY: težišče vrhov v oknu ±5
+  let sw = 0, syw = 0;
   for (let y = Math.max(0, bestY-5); y <= Math.min(H-1, bestY+5); y++) {
     const t = yProfile[y];
-    sumW += t; sumYW += y * t;
+    sw += t; syw += y * t;
   }
-  const yRow2 = Math.round(sumYW / Math.max(1, sumW));
+  const yRow2 = Math.round(syw / Math.max(1, sw));
+  const localTh2 = yProfileTh[yRow2] || globalTh;
 
-  // ---- Preberi prehode v CLOCK in izračunaj širino celice ----
+  // 4) Prehodi v CLOCK vrstici z lokalnim thresholdom
   const clockTrans = [];
-  let prev = px(0, yRow2) < globalTh ? 1 : 0;
+  let prev = px(0, yRow2) < localTh2 ? 1 : 0;
   for (let x = 1; x < W; x++) {
-    const v = px(x, yRow2) < globalTh ? 1 : 0;
+    const v = px(x, yRow2) < localTh2 ? 1 : 0;
     if (v !== prev) clockTrans.push(x);
     prev = v;
   }
   if (clockTrans.length < 4) {
-    return { ok:false, reason:'Premalo CLOCK prehodov',
-             thresholds:{th0:globalTh, th1:globalTh, th2:globalTh},
+    return { ok:false, reason:'Premalo CLOCK prehodov ('+clockTrans.length+')',
+             info: topInfo,
+             thresholds:{th0:globalTh, th1:globalTh, th2:localTh2},
              yRow0:0, yRow1:0, yRow2, rowH:0, detected:false };
   }
+
   const rawGaps = [];
   for (let i = 1; i < clockTrans.length; i++) rawGaps.push(clockTrans[i]-clockTrans[i-1]);
   const sortedGaps = [...rawGaps].sort((a,b)=>a-b);
   const cellPx = sortedGaps[Math.floor(sortedGaps.length/2)];
   if (cellPx < 4) {
     return { ok:false, reason:'Premajhen cikel ('+cellPx+')',
-             thresholds:{th0:globalTh, th1:globalTh, th2:globalTh},
+             info: topInfo,
+             thresholds:{th0:globalTh, th1:globalTh, th2:localTh2},
              yRow0:0, yRow1:0, yRow2, rowH:0, detected:false };
   }
 
-  // ---- Poišči yRow0 in yRow1: išči naslednja vrhova profile navzgor ----
-  // Ker so vse tri vrstice enake višine kot cellPx (kvadratne celice 5×5 mm),
-  // so tudi vrhovi v profilu razporejeni po cellPx.
-  const expectedGap = cellPx;
-  const yRow1 = Math.round(yRow2 - expectedGap);
-  const yRow0 = Math.round(yRow2 - 2 * expectedGap);
-
-  // Zgladi tudi yRow1 in yRow0 z težiščem
+  // 5) Poišči yRow1 in yRow0: lokalna vrhova navzgor
   function findPeakNear(yEst) {
     let sw = 0, syw = 0;
-    const ylo = Math.max(2, yEst - 8), yhi = Math.min(H-3, yEst + 8);
+    const ylo = Math.max(2, yEst - Math.round(cellPx*0.6));
+    const yhi = Math.min(H-3, yEst + Math.round(cellPx*0.6));
     for (let y = ylo; y <= yhi; y++) {
       const t = yProfile[y];
       sw += t; syw += y * t;
     }
-    return Math.round(syw / Math.max(1, sw));
+    return sw > 0 ? Math.round(syw / sw) : yEst;
   }
-  const yRow1Final = findPeakNear(yRow1);
-  const yRow0Final = findPeakNear(yRow0);
+  const yRow1 = findPeakNear(yRow2 - cellPx);
+  const yRow0 = findPeakNear(yRow2 - 2*cellPx);
 
-  // ---- Threshold za vsako vrstico + offset ----
-  function thForY(yc) {
-    return otsuThreshold({x0:4, y0:Math.max(0,yc-3), x1:W-4, y1:Math.min(H,yc+4)}, W, H);
-  }
-  let th0 = thForY(yRow0Final) + thOffset;
-  let th1 = thForY(yRow1Final) + thOffset;
-  let th2 = thForY(yRow2) + thOffset;
-  th0 = Math.max(0, Math.min(255, th0));
-  th1 = Math.max(0, Math.min(255, th1));
-  th2 = Math.max(0, Math.min(255, th2));
+  // 6) Threshold za vsako vrstico (Otsu na tankem pasu)
+  let th0 = otsuRegion(4, Math.max(0, yRow0-4), W-4, Math.min(H, yRow0+5));
+  let th1 = otsuRegion(4, Math.max(0, yRow1-4), W-4, Math.min(H, yRow1+5));
+  let th2 = otsuRegion(4, Math.max(0, yRow2-4), W-4, Math.min(H, yRow2+5));
+  th0 = Math.max(0, Math.min(255, th0 + thOffset));
+  th1 = Math.max(0, Math.min(255, th1 + thOffset));
+  th2 = Math.max(0, Math.min(255, th2 + thOffset));
 
-  // ---- Filtriraj prehode ----
+  // 7) Filtriraj prehode CLOCK
   const good = [clockTrans[0]];
   for (let i = 1; i < clockTrans.length; i++) {
     const g = clockTrans[i] - good[good.length-1];
@@ -434,13 +455,14 @@ function readFromCamera() {
     else if (g > cellPx*1.6) good.push(clockTrans[i]);
   }
   if (good.length < 5) {
-    return { ok:false, reason:'Premalo veljavnih celic',
-             thresholds:{th0,th1,th2}, yRow0:yRow0Final, yRow1:yRow1Final, yRow2,
+    return { ok:false, reason:'Premalo veljavnih celic ('+good.length+')',
+             info: topInfo,
+             thresholds:{th0,th1,th2}, yRow0, yRow1, yRow2,
              rowH: cellPx, detected:true, detectedTrans: bestT };
   }
   const numCells = good.length - 1;
 
-  // ---- Preberi celice z glasovanjem ----
+  // 8) Preberi celice z glasovanjem
   const cellCenters = [], upper = [], lower = [];
   for (let i = 0; i < numCells; i++) {
     const xc = Math.round((good[i] + good[i+1]) / 2);
@@ -448,15 +470,15 @@ function readFromCamera() {
     let v0=0, v1=0, nn=0;
     for (const dx of [-8,-4,0,4,8]) {
       if (xc+dx < 1 || xc+dx > W-1) continue;
-      v0 += px(xc+dx, yRow0Final) < th0 ? 1 : 0;
-      v1 += px(xc+dx, yRow1Final) < th1 ? 1 : 0;
+      v0 += px(xc+dx, yRow0) < th0 ? 1 : 0;
+      v1 += px(xc+dx, yRow1) < th1 ? 1 : 0;
       nn++;
     }
     upper.push(v0 > nn/2 ? 1 : 0);
     lower.push(v1 > nn/2 ? 1 : 0);
   }
 
-  // ---- Vsa 8-bitna okna ----
+  // 9) Vsa okna
   const cands = [];
   for (let i = 0; i <= numCells-4; i++) {
     let bits = 0;
@@ -468,11 +490,12 @@ function readFromCamera() {
   }
   if (cands.length === 0) {
     return { ok:false, reason:'Ni kandidatov',
-             thresholds:{th0,th1,th2}, yRow0:yRow0Final, yRow1:yRow1Final, yRow2,
+             info: topInfo,
+             thresholds:{th0,th1,th2}, yRow0, yRow1, yRow2,
              rowH: cellPx, detected:true, detectedTrans: bestT };
   }
 
-  // ---- Najdaljši niz ----
+  // 10) Najdaljši niz
   let bestS=0, bestL=0, curS=0;
   for (let k = 0; k < cands.length; k++) {
     const p = cands[k-1], w = cands[k];
@@ -482,18 +505,19 @@ function readFromCamera() {
   if (cands.length-curS>bestL) { bestL = cands.length-curS; bestS = curS; }
   if (bestL < 1) {
     return { ok:false, reason:'Ni niza',
-             thresholds:{th0,th1,th2}, yRow0:yRow0Final, yRow1:yRow1Final, yRow2,
+             info: topInfo,
+             thresholds:{th0,th1,th2}, yRow0, yRow1, yRow2,
              rowH: cellPx, detected:true, detectedTrans: bestT };
   }
 
-  // ---- Katera celica vsebuje cx ----
+  // 11) Katera celica vsebuje cx
   let cellAtCx = -1;
   for (let i = 0; i < numCells; i++) {
     if (good[i] <= cx && cx < good[i+1]) { cellAtCx = i; break; }
   }
   if (cellAtCx < 0) cellAtCx = Math.floor(numCells/2);
 
-  // ---- Izbira kandidata ----
+  // 12) Izbira kandidata
   let chosen = null, chosenCRef = null;
   for (let k = bestS; k < bestS+bestL; k++) {
     const cand = cands[k];
@@ -515,7 +539,8 @@ function readFromCamera() {
   }
   if (!chosen) {
     return { ok:false, reason:'Ni okna',
-             thresholds:{th0,th1,th2}, yRow0:yRow0Final, yRow1:yRow1Final, yRow2,
+             info: topInfo,
+             thresholds:{th0,th1,th2}, yRow0, yRow1, yRow2,
              rowH: cellPx, detected:true, detectedTrans: bestT };
   }
 
@@ -533,22 +558,22 @@ function readFromCamera() {
   for (let k = 0; k < 4; k++) {
     const gi = chosen.i + k;
     if (gi < 0 || gi >= numCells) continue;
-    bitPoints.push({ x: cellCenters[gi], y: yRow0Final, bit: k });
-    bitPoints.push({ x: cellCenters[gi], y: yRow1Final, bit: k+4 });
+    bitPoints.push({ x: cellCenters[gi], y: yRow0, bit: k });
+    bitPoints.push({ x: cellCenters[gi], y: yRow1, bit: k+4 });
   }
 
   return {
     ok:true, mm, mm_phys, c:cRef, delta,
     cellPx, cellW: refW,
     bits: chosen.bits,
-    bitPoints,
-    gridLines: good,
+    bitPoints, gridLines: good,
     refLeft, refRight,
-    yRow0: yRow0Final, yRow1: yRow1Final, yRow2, rowH: cellPx,
+    yRow0, yRow1, yRow2, rowH: cellPx,
     cellAtCx, chosenI: chosen.i, bestLen: bestL, bestStart: bestS,
     numCells, transitions: good,
     cands, thresholds: { th0, th1, th2 },
-    detected:true, detectedTrans: bestT
+    detected:true, detectedTrans: bestT,
+    info: topInfo
   };
 }
 
@@ -560,7 +585,6 @@ function snapshotToProcess() {
   if (orientation === 'h') {
     pctx.drawImage(video, 0, 0, W, H);
   } else {
-    // Rotiraj 90° CW
     pctx.translate(W/2, H/2);
     pctx.rotate(Math.PI/2);
     pctx.drawImage(video, -W/2, -H/2, W, H);
@@ -574,30 +598,29 @@ function drawGuidesOnOverlay(debug) {
   ovctx.clearRect(0,0,W,H);
 
   // KONTRAST
-  if (contrastOn && debug && debug.thresholds && debug.yRow0 !== undefined
-      && debug.yRow2 > 0 && frameData) {
+  if (contrastOn && debug && debug.thresholds && debug.yRow2 > 0 && frameData) {
     const th = debug.thresholds;
     const yR0 = debug.yRow0, yR1 = debug.yRow1, yR2 = debug.yRow2;
     const bandH = Math.max(4, Math.round((debug.rowH||30) * 0.5));
 
     for (let x = 4; x < W-4; x += 3) {
       const v0 = px(x, yR0);
-      ovctx.fillStyle = v0 < th.th0 ? 'rgba(0,100,255,0.6)' : 'rgba(255,60,60,0.45)';
+      ovctx.fillStyle = v0 < th.th0 ? 'rgba(0,100,255,0.55)' : 'rgba(255,60,60,0.4)';
       ovctx.fillRect(x, yR0 - bandH/2, 3, bandH);
     }
     for (let x = 4; x < W-4; x += 3) {
       const v1 = px(x, yR1);
-      ovctx.fillStyle = v1 < th.th1 ? 'rgba(0,100,255,0.6)' : 'rgba(255,60,60,0.45)';
+      ovctx.fillStyle = v1 < th.th1 ? 'rgba(0,100,255,0.55)' : 'rgba(255,60,60,0.4)';
       ovctx.fillRect(x, yR1 - bandH/2, 3, bandH);
     }
     for (let x = 4; x < W-4; x += 3) {
       const v2 = px(x, yR2);
-      ovctx.fillStyle = v2 < th.th2 ? 'rgba(0,100,255,0.6)' : 'rgba(255,60,60,0.45)';
+      ovctx.fillStyle = v2 < th.th2 ? 'rgba(0,100,255,0.55)' : 'rgba(255,60,60,0.4)';
       ovctx.fillRect(x, yR2 - bandH/2, 3, bandH);
     }
 
     // Rumene črte – kje bere
-    ovctx.strokeStyle = 'rgba(255,255,0,0.9)';
+    ovctx.strokeStyle = 'rgba(255,255,0,0.95)';
     ovctx.lineWidth = 1;
     ovctx.beginPath();
     ovctx.moveTo(4, yR0); ovctx.lineTo(W-4, yR0);
@@ -622,7 +645,8 @@ function drawGuidesOnOverlay(debug) {
       }
       ovctx.stroke(); ovctx.setLineDash([]);
     }
-    if (debug.refLeft !== undefined && debug.refRight !== undefined) {
+    if (debug.refLeft !== undefined && debug.refRight !== undefined
+        && debug.refLeft !== null && debug.refRight !== null) {
       ovctx.fillStyle = 'yellow';
       ovctx.fillRect(debug.refLeft-1, 0, 3, H);
       ovctx.fillStyle = 'orange';
@@ -662,17 +686,16 @@ function update() {
     drawSimulator(P);
     cacheFrame();
     ovctx.drawImage(processC, 0, 0, overlay.width, overlay.height);
-    const r = readDynamic(P);
+    const r = readSimulator(P);
     drawGuidesOnOverlay(r);
     outEl.textContent = r.mm.toFixed(2) + ' mm';
-    $('napakaVal').textContent = (r.mm - P).toFixed(2) + ' mm';
     $('deltaVal').textContent = r.delta.toFixed(2) + ' mm';
     $('boundaryWarn').textContent = (r.delta < 0.2 || r.delta > 4.8) ? '⚠ rob' : '';
     $('testOut').textContent =
-      'SIMULATOR\nP=' + P.toFixed(2) + '  Pphys=' + (P+CODE_OFFSET).toFixed(2) + '\n' +
+      VERSION + ' · SIMULATOR\n' +
+      'P=' + P.toFixed(2) + '  Pphys=' + (P+CODE_OFFSET).toFixed(2) + '\n' +
       'bits=' + bitsStr(r.bits) + '  cRef=' + r.cRef + '\n' +
-      'δ=' + r.delta.toFixed(2) + '  mm=' + r.mm.toFixed(2) +
-      '  napaka=' + (r.mm-P).toFixed(2);
+      'δ=' + r.delta.toFixed(2) + '  mm=' + r.mm.toFixed(2);
   } else if (video.readyState >= 2) {
     snapshotToProcess();
     cacheFrame();
@@ -683,27 +706,30 @@ function update() {
       outEl.textContent = r.mm.toFixed(2) + ' mm';
       $('deltaVal').textContent = r.delta.toFixed(2) + ' mm';
       $('boundaryWarn').textContent = (r.delta < 0.2 || r.delta > 4.8) ? '⚠ rob' : '';
-      $('napakaVal').textContent = '–';
       $('testOut').textContent =
-        '=== AVTOMATIKA ===\n' +
-        'CLOCK trans=' + r.detectedTrans + '\n' +
+        VERSION + ' · KAMERA\n' +
+        (r.info || '') + '\n' +
         'yRow0=' + r.yRow0 + '  yRow1=' + r.yRow1 + '  yRow2=' + r.yRow2 + '\n' +
-        'rowH=' + r.rowH.toFixed(1) + ' px  cellPx=' + r.cellPx.toFixed(1) + ' px\n' +
+        'rowH=' + r.rowH.toFixed(1) + '  cellPx=' + r.cellPx.toFixed(1) + '\n' +
         'th0=' + r.thresholds.th0.toFixed(0) +
         '  th1=' + r.thresholds.th1.toFixed(0) +
         '  th2=' + r.thresholds.th2.toFixed(0) + '\n' +
         'prehodi=' + r.transitions.length + '  mreža=' + r.numCells + ' celic\n' +
         'najd.niz=' + r.bestLen + '  cRef=' + r.c + '\n' +
         'bits=' + bitsStr(r.bits) + '\n' +
-        'δ=' + r.delta.toFixed(2) + ' mm\n' +
-        'mm_phys=' + r.mm_phys.toFixed(2) + '  mm=' + r.mm.toFixed(2);
+        'δ=' + r.delta.toFixed(2) + '  mm=' + r.mm.toFixed(2);
     } else {
       outEl.textContent = '–';
       $('deltaVal').textContent = '–';
       $('boundaryWarn').textContent = '';
-      $('napakaVal').textContent = '–';
-      $('testOut').textContent = 'Branje ni uspelo: ' + (r.reason || '') +
-        '\nyRow0=' + r.yRow0 + ' yRow1=' + r.yRow1 + ' yRow2=' + r.yRow2;
+      $('testOut').textContent =
+        VERSION + ' · KAMERA – napaka\n' +
+        'Razlog: ' + (r.reason || '?') + '\n' +
+        (r.info || '') + '\n' +
+        'yRow0=' + r.yRow0 + ' yRow1=' + r.yRow1 + ' yRow2=' + r.yRow2 + '\n' +
+        'th0=' + r.thresholds.th0.toFixed(0) +
+        ' th1=' + r.thresholds.th1.toFixed(0) +
+        ' th2=' + r.thresholds.th2.toFixed(0);
     }
   }
   requestAnimationFrame(update);
@@ -715,13 +741,14 @@ function testAdjacent() {
     mode='sim'; stopCamera();
     $('toggle').textContent='Na kamero'; statusEl.textContent='Simulator';
   }
-  const lines = ['P       preb   cRef δ     niz  okn     nap    OK',
-                 '------  -----  ---  ----  ---  ------  -----  ---'];
+  const lines = [VERSION + ' – preverjanje 0..30 mm',
+                 'P       preb   cRef δ     niz  nap    OK',
+                 '------  -----  ---  ----  ---  -----  ---'];
   let errs = 0;
   for (let mm = 0; mm <= 30; mm += 2.5) {
     drawSimulator(mm);
     cacheFrame();
-    const r = readDynamic(mm);
+    const r = readSimulator(mm);
     const err = r.mm - mm;
     const ok = Math.abs(err) < 1;
     if (!ok) errs++;
@@ -731,11 +758,9 @@ function testAdjacent() {
       String(r.cRef).padStart(3)+'  '+
       String(r.delta.toFixed(2)).padStart(4)+'  '+
       String(r.bestLen).padStart(3)+'  '+
-      String(r.validWindows+'/'+r.numWindows).padStart(6)+'  '+
       String(err.toFixed(2)).padStart(5)+'  '+(ok?'✓':'✗'));
   }
   lines.push(''); lines.push('Napak: '+errs);
-  lines.push(errs===0?'VSE OK ✓':'NAPAKE!');
   $('testOut').textContent = lines.join('\n');
 }
 
@@ -748,9 +773,11 @@ function exportA4() {
   const ctx = cvs.getContext('2d');
   ctx.fillStyle = 'white'; ctx.fillRect(0,0,W_PX,H_PX);
   const M = 10*PPMM, CELL_PX = 5*PPMM;
-  const N = 53, stripStarts = [70,335,600,865], top = 14*PPMM;
+  const N = 53, stripStarts = [70,335,600,865], top = 16*PPMM;
   ctx.fillStyle = '#222'; ctx.font = `bold ${4*PPMM}px sans-serif`;
-  ctx.fillText('Premerka – prikaz 0–1000 mm (koda 100–1100 mm)', M, 6*PPMM);
+  ctx.fillText('Premerka ' + VERSION + ' · ' + BUILD_TIME, M, 6*PPMM);
+  ctx.font = `${2.5*PPMM}px sans-serif`; ctx.fillStyle = '#555';
+  ctx.fillText('prikaz 0–1000 mm (koda 100–1100 mm)', M, 11*PPMM);
   stripStarts.forEach((sMM, idx) => {
     const y0 = top + idx*(26+6)*PPMM;
     if (y0 + 26*PPMM > H_PX - M) return;
@@ -773,7 +800,7 @@ function exportA4() {
   cvs.toBlob(b => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(b);
-    a.download = 'premerka-A4-'+new Date().toISOString().slice(0,10)+'.jpg';
+    a.download = 'premerka-' + VERSION + '-' + new Date().toISOString().slice(0,10)+'.jpg';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     statusEl.textContent = 'Izvoženo';
   }, 'image/jpeg', 0.95);
@@ -829,7 +856,6 @@ function toggleOrientation() {
   ovctx.clearRect(0,0,overlay.width,overlay.height);
 }
 
-// Ob nalaganju videa: nastavi velikost canvasa in aspect ratio wrap-a
 function onVideoMeta() {
   const W = video.videoWidth || 800;
   const H = video.videoHeight || 600;
@@ -845,19 +871,13 @@ $('toggle').onclick = toggleMode;
 $('testBtn').onclick = testAdjacent;
 $('exportBtn').onclick = exportA4;
 $('orientBtn').onclick = toggleOrientation;
-$('roiSize').oninput = e => { $('roiSizeVal').textContent = e.target.value+' %'; };
-$('roiOffset').oninput = e => { $('roiOffsetVal').textContent = e.target.value+' %'; };
 $('lineThick').oninput = e => { lineThick = parseInt(e.target.value); $('lineThickVal').textContent = lineThick+' px'; };
 $('debugChk').onchange = e => { debugOn = e.target.checked; };
 $('contrastChk').onchange = e => { contrastOn = e.target.checked; };
 $('autoChk').onchange = e => {
   autoMode = e.target.checked;
-  $('roiSize').disabled = autoMode;
-  $('roiOffset').disabled = autoMode;
-  $('thSlider').disabled = autoMode;
   statusEl.textContent = autoMode ? 'AVTOMATIKA' : 'ROČNO';
 };
-$('thSlider').oninput = e => { manualTh = parseInt(e.target.value); $('thVal').textContent = manualTh; };
 $('thOffset').oninput = e => {
   thOffset = parseInt(e.target.value);
   $('thOffsetVal').textContent = (thOffset > 0 ? '+' : '') + thOffset;
