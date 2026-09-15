@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#111">
-<title>Premerka – CLOCK grid + kontrast</title>
+<title>Premerka – CLOCK grid + Otsu threshold</title>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin:0; padding:0; font-family:-apple-system,Roboto,sans-serif;
@@ -34,6 +34,8 @@
   input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; appearance:none;
     width:30px; height:30px; background:#48f; border:3px solid #fff;
     border-radius:50%; margin-top:-8px; }
+  input[type=range]:disabled::-webkit-slider-thumb { background:#666; }
+  input[type=range]:disabled::-webkit-slider-runnable-track { opacity:0.5; }
   #rezultat { font-size:clamp(34px,10vw,56px); font-weight:bold; color:#4f4; }
   #totalVal, .big { font-size:clamp(26px,7vw,44px); font-weight:bold; color:#4f4; }
   .val { font-size:clamp(16px,4.5vw,26px); font-weight:bold; color:#4f4; }
@@ -83,6 +85,23 @@
     <span class="label">Pomik</span>
     <input type="range" id="roiOffset" min="0" max="100" step="1" value="50">
     <span id="roiOffsetVal" class="val">50 %</span>
+  </div>
+
+  <div class="row">
+    <label class="debug-toggle">
+      <input type="checkbox" id="autoThChk" checked>
+      Samodejni threshold (Otsu)
+    </label>
+  </div>
+  <div class="row">
+    <span class="label">Threshold</span>
+    <input type="range" id="thSlider" min="0" max="255" step="1" value="128" disabled>
+    <span id="thVal" class="val">128</span>
+  </div>
+  <div class="row">
+    <span class="label">Offset</span>
+    <input type="range" id="thOffset" min="-60" max="60" step="1" value="0">
+    <span id="thOffsetVal" class="val">0</span>
   </div>
 
   <div class="row">
@@ -165,6 +184,9 @@ let roiSize = 0.35, roiOffset = 0.50;
 let lineThick = 4;
 let debugOn = true;
 let contrastOn = true;
+let autoTh = true;
+let manualTh = 128;
+let thOffset = 0;
 
 // ---------- Simulator risanje ----------
 function drawSimulator(P) {
@@ -200,6 +222,38 @@ function readBrightness(x, y) {
   if (xi<0 || yi<0 || xi>=processC.width || yi>=processC.height) return 255;
   const d = pctx.getImageData(xi, yi, 1, 1).data;
   return (d[0]+d[1]+d[2])/3;
+}
+
+// ---------- Otsu ----------
+function otsuThreshold(yc, W, H) {
+  if (yc < 0 || yc >= H) return 128;
+  const hist = new Array(256).fill(0);
+  const yStart = Math.max(0, Math.floor(yc) - 3);
+  const yEnd = Math.min(H, Math.floor(yc) + 4);
+  let total = 0;
+  for (let y = yStart; y < yEnd; y++) {
+    for (let x = 2; x < W-2; x++) {
+      const v = Math.round(readBrightness(x, y));
+      hist[Math.min(255, Math.max(0, v))]++;
+      total++;
+    }
+  }
+  if (total === 0) return 128;
+  let sum = 0;
+  for (let i = 0; i < 256; i++) sum += i * hist[i];
+  let sumB = 0, wB = 0, max = 0, threshold = 128;
+  for (let t = 0; t < 256; t++) {
+    wB += hist[t];
+    if (wB === 0) continue;
+    const wF = total - wB;
+    if (wF === 0) break;
+    sumB += t * hist[t];
+    const mB = sumB / wB;
+    const mF = (sum - sumB) / wF;
+    const between = wB * wF * (mB - mF) * (mB - mF);
+    if (between > max) { max = between; threshold = t; }
+  }
+  return threshold;
 }
 
 // ---------- Simulator branje ----------
@@ -278,7 +332,7 @@ function readDynamic(P) {
     numWindows:wins.length, validWindows:wins.filter(x=>x.c>=0).length,
     allC:wins.map(x=>x.c), delta, widthPx:w, calFactor:cal,
     mm, mm_phys, bitPoints, refLeft:e.L, refRight:e.R,
-    gridLines:[], yRow2:yC2,
+    gridLines:[], yRow0:yC0, yRow1:yC1, yRow2:yC2,
     thresholds:{ th0:128, th1:128, th2:128 },
     roiY0:Y0, rowPx:ROW_PX
   };
@@ -294,11 +348,23 @@ function readFromCamera() {
   const yRow1 = Math.round(y0 + rowPx*1.5);
   const yRow2 = Math.round(y0 + rowPx*2.5);
 
-  // ---- 1) Skeniraj CLOCK vrstico ----
-  let sum = 0, n = 0;
-  for (let x = 2; x < W-2; x++) { sum += readBrightness(x, yRow2); n++; }
-  const thresh2 = sum / n;
+  // ---- Threshold: Otsu ali ročni ----
+  let th0, th1, th2;
+  if (autoTh) {
+    th0 = otsuThreshold(yRow0, W, H);
+    th1 = otsuThreshold(yRow1, W, H);
+    th2 = otsuThreshold(yRow2, W, H);
+  } else {
+    th0 = th1 = th2 = manualTh;
+  }
+  // Ročni offset (deluje tudi v auto načinu)
+  th0 = Math.max(0, Math.min(255, th0 + thOffset));
+  th1 = Math.max(0, Math.min(255, th1 + thOffset));
+  th2 = Math.max(0, Math.min(255, th2 + thOffset));
 
+  const thresh2 = th2;
+
+  // ---- 1) Skeniraj CLOCK vrstico ----
   const transitions = [];
   let prev = readBrightness(0, yRow2) < thresh2 ? 1 : 0;
   for (let x = 1; x < W; x++) {
@@ -308,7 +374,8 @@ function readFromCamera() {
   }
   if (transitions.length < 6) {
     return { ok:false, reason:'Premalo prehodov ('+transitions.length+')',
-             thresholds:{th0:128,th1:128,th2:thresh2}, roiY0:y0, rowPx };
+             thresholds:{th0,th1,th2}, roiY0:y0, rowPx,
+             yRow0, yRow1, yRow2 };
   }
 
   // ---- 2) Cikel = mediana gapov ----
@@ -318,7 +385,8 @@ function readFromCamera() {
   const medGap = sortedGaps[Math.floor(sortedGaps.length/2)];
   if (medGap < 4) {
     return { ok:false, reason:'Premajhen cikel',
-             thresholds:{th0:128,th1:128,th2:thresh2}, roiY0:y0, rowPx };
+             thresholds:{th0,th1,th2}, roiY0:y0, rowPx,
+             yRow0, yRow1, yRow2 };
   }
 
   // ---- 3) Filtriraj prehode ----
@@ -330,23 +398,12 @@ function readFromCamera() {
   }
   if (good.length < 5) {
     return { ok:false, reason:'Premalo celic',
-             thresholds:{th0:128,th1:128,th2:thresh2}, roiY0:y0, rowPx };
+             thresholds:{th0,th1,th2}, roiY0:y0, rowPx,
+             yRow0, yRow1, yRow2 };
   }
   const numCells = good.length - 1;
 
-  // ---- 4) Adaptivni threshold za vrstici 0 in 1 ----
-  let s0 = 0, s1 = 0, m = 0;
-  for (let i = 0; i < numCells; i++) {
-    const xc = Math.round((good[i] + good[i+1]) / 2);
-    for (let dx = -3; dx <= 3; dx++) {
-      s0 += readBrightness(xc+dx, yRow0);
-      s1 += readBrightness(xc+dx, yRow1);
-      m++;
-    }
-  }
-  const th0 = s0/m, th1 = s1/m;
-
-  // ---- 5) Preberi vsako celico z glasovanjem ----
+  // ---- 4) Preberi vsako celico z glasovanjem ----
   const cellCenters = [], upper = [], lower = [];
   for (let i = 0; i < numCells; i++) {
     const xc = Math.round((good[i] + good[i+1]) / 2);
@@ -362,7 +419,7 @@ function readFromCamera() {
     lower.push(v1 > nn/2 ? 1 : 0);
   }
 
-  // ---- 6) Vsa 8-bitna okna ----
+  // ---- 5) Vsa 8-bitna okna ----
   const cands = [];
   for (let i = 0; i <= numCells-4; i++) {
     let bits = 0;
@@ -374,10 +431,11 @@ function readFromCamera() {
   }
   if (cands.length === 0) {
     return { ok:false, reason:'Ni kandidatov',
-             thresholds:{th0,th1,th2:thresh2}, roiY0:y0, rowPx };
+             thresholds:{th0,th1,th2}, roiY0:y0, rowPx,
+             yRow0, yRow1, yRow2 };
   }
 
-  // ---- 7) Najdaljši niz ----
+  // ---- 6) Najdaljši niz ----
   let bestS=0, bestL=0, curS=0;
   for (let k = 0; k < cands.length; k++) {
     const prev = cands[k-1], w = cands[k];
@@ -387,17 +445,18 @@ function readFromCamera() {
   if (cands.length-curS>bestL) { bestL = cands.length-curS; bestS = curS; }
   if (bestL < 1) {
     return { ok:false, reason:'Ni niza',
-             thresholds:{th0,th1,th2:thresh2}, roiY0:y0, rowPx };
+             thresholds:{th0,th1,th2}, roiY0:y0, rowPx,
+             yRow0, yRow1, yRow2 };
   }
 
-  // ---- 8) Katera celica vsebuje cx ----
+  // ---- 7) Katera celica vsebuje cx ----
   let cellAtCx = -1;
   for (let i = 0; i < numCells; i++) {
     if (good[i] <= cx && cx < good[i+1]) { cellAtCx = i; break; }
   }
   if (cellAtCx < 0) cellAtCx = Math.floor(numCells/2);
 
-  // ---- 9) Izbira kandidata ----
+  // ---- 8) Izbira kandidata ----
   let chosen = null, chosenCRef = null;
   for (let k = bestS; k < bestS+bestL; k++) {
     const cand = cands[k];
@@ -419,12 +478,13 @@ function readFromCamera() {
   }
   if (!chosen) {
     return { ok:false, reason:'Ni okna',
-             thresholds:{th0,th1,th2:thresh2}, roiY0:y0, rowPx };
+             thresholds:{th0,th1,th2}, roiY0:y0, rowPx,
+             yRow0, yRow1, yRow2 };
   }
 
   const cRef = chosenCRef;
 
-  // ---- 10) δ ----
+  // ---- 9) δ ----
   const refLeft  = good[cellAtCx];
   const refRight = good[cellAtCx+1];
   const refW = refRight - refLeft;
@@ -434,7 +494,7 @@ function readFromCamera() {
   const mm_phys = cRef * 5 + delta;
   const mm = Math.max(0, Math.min(1000, mm_phys - CODE_OFFSET));
 
-  // ---- 11) Debug točke ----
+  // ---- 10) Debug točke ----
   const bitPoints = [];
   for (let k = 0; k < 4; k++) {
     const gi = chosen.i + k;
@@ -454,7 +514,7 @@ function readFromCamera() {
     cellAtCx, chosenI: chosen.i, bestLen: bestL, bestStart: bestS,
     numCells, transitions: good,
     cands,
-    thresholds: { th0, th1, th2: thresh2 }
+    thresholds: { th0, th1, th2 }
   };
 }
 
@@ -476,12 +536,12 @@ function snapshotToProcess() {
   pctx.restore();
 }
 
-// ---------- Vodila na overlay z kontrastom ----------
+// ---------- Vodila na overlay ----------
 function drawGuidesOnOverlay(debug) {
   const W = overlay.width, H = overlay.height;
   ovctx.clearRect(0,0,W,H);
 
-  // ROI dimenzije (za kontrast)
+  // ROI dimenzije
   let roiX, roiY, roiW, roiH;
   if (orientation === 'h') {
     roiH = Math.max(20, H * roiSize); roiW = W - 16; roiX = 8;
@@ -492,39 +552,28 @@ function drawGuidesOnOverlay(debug) {
   }
   const roiX1 = roiX+roiW, roiY1 = roiY+roiH;
 
-  // ---------- PRIKAZ KONTRASTA ----------
-  // Vzorčenje vsake 2 px horizontalno, vsak 4 px vertikalno – hitro in vidno
-  if (contrastOn && debug && debug.thresholds && debug.roiY0 !== undefined) {
+  // ---------- KONTRAST ----------
+  if (contrastOn && debug && debug.thresholds && debug.yRow0 !== undefined) {
     const th = debug.thresholds;
-    const y0 = debug.roiY0;
-    const rowPx = debug.rowPx;
-    const yR0 = Math.round(y0 + rowPx*0.5);
-    const yR1 = Math.round(y0 + rowPx*1.5);
-    const yR2 = Math.round(y0 + rowPx*2.5);
+    const yR0 = debug.yRow0;
+    const yR1 = debug.yRow1;
+    const yR2 = debug.yRow2;
+    const bandH = Math.max(4, Math.round(debug.rowPx * 0.55));
 
-    // Vrstica bit0-3
-    if (th.th0 !== undefined) {
-      for (let x = roiX; x < roiX1; x += 3) {
-        const v = readBrightness(x, yR0);
-        ovctx.fillStyle = v < th.th0 ? 'rgba(0,100,255,0.35)' : 'rgba(255,60,60,0.25)';
-        ovctx.fillRect(x, roiY, 3, roiH/3);
-      }
+    for (let x = roiX; x < roiX1; x += 3) {
+      const v0 = readBrightness(x, yR0);
+      ovctx.fillStyle = v0 < th.th0 ? 'rgba(0,100,255,0.55)' : 'rgba(255,60,60,0.4)';
+      ovctx.fillRect(x, yR0 - bandH/2, 3, bandH);
     }
-    // Vrstica bit4-7
-    if (th.th1 !== undefined) {
-      for (let x = roiX; x < roiX1; x += 3) {
-        const v = readBrightness(x, yR1);
-        ovctx.fillStyle = v < th.th1 ? 'rgba(0,100,255,0.35)' : 'rgba(255,60,60,0.25)';
-        ovctx.fillRect(x, roiY+roiH/3, 3, roiH/3);
-      }
+    for (let x = roiX; x < roiX1; x += 3) {
+      const v1 = readBrightness(x, yR1);
+      ovctx.fillStyle = v1 < th.th1 ? 'rgba(0,100,255,0.55)' : 'rgba(255,60,60,0.4)';
+      ovctx.fillRect(x, yR1 - bandH/2, 3, bandH);
     }
-    // CLOCK vrstica
-    if (th.th2 !== undefined) {
-      for (let x = roiX; x < roiX1; x += 3) {
-        const v = readBrightness(x, yR2);
-        ovctx.fillStyle = v < th.th2 ? 'rgba(0,100,255,0.35)' : 'rgba(255,60,60,0.25)';
-        ovctx.fillRect(x, roiY+2*roiH/3, 3, roiH/3);
-      }
+    for (let x = roiX; x < roiX1; x += 3) {
+      const v2 = readBrightness(x, yR2);
+      ovctx.fillStyle = v2 < th.th2 ? 'rgba(0,100,255,0.55)' : 'rgba(255,60,60,0.4)';
+      ovctx.fillRect(x, yR2 - bandH/2, 3, bandH);
     }
   }
 
@@ -657,7 +706,12 @@ function update() {
       $('napakaVal').textContent = '–';
 
       $('testOut').textContent =
-        '=== CLOCK grid + kontrast ===\n' +
+        '=== CLOCK grid + Otsu ===\n' +
+        'način: ' + (autoTh ? 'AUTO (Otsu)' : 'ROČNI ' + manualTh) +
+        '  offset=' + thOffset + '\n' +
+        'th0=' + r.thresholds.th0.toFixed(0) +
+        '  th1=' + r.thresholds.th1.toFixed(0) +
+        '  th2=' + r.thresholds.th2.toFixed(0) + '\n' +
         'orientacija=' + orientation + '  ROI=' + (roiSize*100).toFixed(0) +
         '%  pomik=' + (roiOffset*100).toFixed(0) + '%\n' +
         'prehodi=' + r.transitions.length + '  cikel=' + r.cellPx.toFixed(1) + ' px\n' +
@@ -666,9 +720,6 @@ function update() {
         'izbrano okno i=' + r.chosenI + '  c=' + r.cands[r.chosenI].c + '\n' +
         'cellAtCx=' + r.cellAtCx + '  cRef=' + r.c + '\n' +
         'bits=' + bitsStr(r.bits) + '\n' +
-        'thresholds: th0=' + r.thresholds.th0.toFixed(0) +
-        '  th1=' + r.thresholds.th1.toFixed(0) +
-        '  th2=' + r.thresholds.th2.toFixed(0) + '\n' +
         'refL=' + r.refLeft.toFixed(1) + '  refR=' + r.refRight.toFixed(1) +
         '  refW=' + r.cellW.toFixed(1) + ' px\n' +
         'δ=' + r.delta.toFixed(2) + ' mm\n' +
@@ -679,7 +730,10 @@ function update() {
       $('deltaVal').textContent = '–';
       $('boundaryWarn').textContent = '';
       $('napakaVal').textContent = '–';
-      $('testOut').textContent = 'Branje ni uspelo: ' + (r.reason || '');
+      $('testOut').textContent = 'Branje ni uspelo: ' + (r.reason || '') +
+        '\nth0=' + (r.thresholds ? r.thresholds.th0.toFixed(0) : '?') +
+        '  th1=' + (r.thresholds ? r.thresholds.th1.toFixed(0) : '?') +
+        '  th2=' + (r.thresholds ? r.thresholds.th2.toFixed(0) : '?');
     }
   }
   requestAnimationFrame(update);
@@ -827,6 +881,20 @@ $('roiOffset').oninput = e => { roiOffset = e.target.value/100; $('roiOffsetVal'
 $('lineThick').oninput = e => { lineThick = parseInt(e.target.value); $('lineThickVal').textContent = lineThick+' px'; };
 $('debugChk').onchange = e => { debugOn = e.target.checked; };
 $('contrastChk').onchange = e => { contrastOn = e.target.checked; };
+
+$('autoThChk').onchange = e => {
+  autoTh = e.target.checked;
+  $('thSlider').disabled = autoTh;
+  statusEl.textContent = autoTh ? 'Auto threshold (Otsu)' : 'Ročni threshold';
+};
+$('thSlider').oninput = e => {
+  manualTh = parseInt(e.target.value);
+  $('thVal').textContent = manualTh;
+};
+$('thOffset').oninput = e => {
+  thOffset = parseInt(e.target.value);
+  $('thOffsetVal').textContent = (thOffset > 0 ? '+' : '') + thOffset;
+};
 
 listCameras().then(() => startCamera().then(() => requestAnimationFrame(update)));
 </script>
