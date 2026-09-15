@@ -4,16 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#111">
-<title>Premerka – AUTO</title>
+<title>Premerka – AVTO</title>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin:0; padding:0; font-family:-apple-system,Roboto,sans-serif;
     background:#111; color:#eee; overflow-x:hidden; touch-action:manipulation; }
   body { display:flex; flex-direction:column; align-items:center; padding:8px 4px 20px; }
-  .camera-wrap { position:relative; width:90vw; max-width:560px; aspect-ratio:4/3;
+  .camera-wrap { position:relative; width:90vw; max-width:560px;
     background:#000; border:2px solid #333; border-radius:12px;
     overflow:hidden; margin-bottom:10px; }
-  #v { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; }
+  #v { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:contain; display:none; }
   #overlay { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:2; }
   #process { display:none; }
   .controls { width:100vw; max-width:640px; display:flex; flex-direction:column; gap:10px; padding:0 12px; }
@@ -34,7 +34,6 @@
   input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; appearance:none;
     width:30px; height:30px; background:#48f; border:3px solid #fff;
     border-radius:50%; margin-top:-8px; }
-  input[type=range]:disabled::-webkit-slider-thumb { background:#666; }
   #rezultat { font-size:clamp(34px,10vw,56px); font-weight:bold; color:#4f4; }
   #totalVal, .big { font-size:clamp(26px,7vw,44px); font-weight:bold; color:#4f4; }
   .val { font-size:clamp(16px,4.5vw,26px); font-weight:bold; color:#4f4; }
@@ -50,7 +49,7 @@
 </head>
 <body>
 
-<div class="camera-wrap">
+<div class="camera-wrap" id="camWrap">
   <video id="v" autoplay playsinline muted></video>
   <canvas id="overlay"></canvas>
 </div>
@@ -72,7 +71,7 @@
   <div class="row">
     <label class="debug-toggle" style="font-size:18px;color:#4f4;">
       <input type="checkbox" id="autoChk" checked>
-      AVTOMATIKA (vse samodejno)
+      AVTOMATIKA
     </label>
   </div>
 
@@ -107,11 +106,11 @@
   <div class="row">
     <label class="debug-toggle">
       <input type="checkbox" id="contrastChk" checked>
-      Prikaz kontrasta
+      Kontrast
     </label>
     <label class="debug-toggle">
       <input type="checkbox" id="debugChk" checked>
-      Debug prikaz
+      Debug
     </label>
   </div>
 
@@ -166,6 +165,7 @@ const overlay  = $('overlay');
 const ovctx    = overlay.getContext('2d');
 const processC = $('process');
 const pctx     = processC.getContext('2d', { willReadFrequently:true });
+const camWrap  = $('camWrap');
 const outEl    = $('rezultat');
 const statusEl = $('status');
 
@@ -176,14 +176,37 @@ const yC0 = Y_ROW0+25, yC1 = Y_ROW1+25, yC2 = Y_ROW2+25;
 let mode = 'camera';
 let orientation = 'h';
 let stream = null, currentDeviceId = null;
-let roiSize = 0.35, roiOffset = 0.50;
 let lineThick = 4;
 let debugOn = true;
 let contrastOn = true;
-let autoMode = true;   // master switch
+let autoMode = true;
 let manualTh = 128;
 let thOffset = 0;
 
+// ---------- Predpomnjeni frame ----------
+let frameData = null;
+let FW = 0, FH = 0;
+
+function cacheFrame() {
+  if (video.readyState < 2) return false;
+  FW = processC.width; FH = processC.height;
+  frameData = pctx.getImageData(0, 0, FW, FH);
+  return true;
+}
+
+function px(x, y) {
+  x = x|0; y = y|0;
+  if (x < 0 || y < 0 || x >= FW || y >= FH) return 255;
+  const idx = (y * FW + x) * 4;
+  const d = frameData.data;
+  return (d[idx] + d[idx+1] + d[idx+2]) / 3;
+}
+
+function pxBit(x, y) {
+  return px(x, y) < 128 ? 1 : 0;
+}
+
+// ---------- Simulator ----------
 function drawSimulator(P) {
   const Pphys = P + CODE_OFFSET;
   const W = processC.width, H = processC.height, cx = W/2;
@@ -203,30 +226,14 @@ function drawSimulator(P) {
   }
 }
 
-function readPixel(x, y) {
-  const xi = Math.round(x), yi = Math.round(y);
-  if (xi<0 || yi<0 || xi>=processC.width || yi>=processC.height) return 1;
-  const d = pctx.getImageData(xi, yi, 1, 1).data;
-  return ((d[0]+d[1]+d[2])/3) < 128 ? 1 : 0;
-}
-function readBrightness(x, y) {
-  const xi = Math.round(x), yi = Math.round(y);
-  if (xi<0 || yi<0 || xi>=processC.width || yi>=processC.height) return 255;
-  const d = pctx.getImageData(xi, yi, 1, 1).data;
-  return (d[0]+d[1]+d[2])/3;
-}
-
-// Otsu threshold
-function otsuThreshold(yc, W, H, halfBand) {
-  halfBand = halfBand || 3;
-  if (yc < 0 || yc >= H) return 128;
+// ---------- Otsu ----------
+function otsuThreshold(region, W, H) {
+  // region = {x0,y0,x1,y1}
   const hist = new Array(256).fill(0);
-  const yStart = Math.max(0, Math.floor(yc) - halfBand);
-  const yEnd = Math.min(H, Math.floor(yc) + halfBand + 1);
   let total = 0;
-  for (let y = yStart; y < yEnd; y++)
-    for (let x = 2; x < W-2; x++) {
-      const v = Math.round(readBrightness(x, y));
+  for (let y = region.y0; y < region.y1; y++)
+    for (let x = region.x0; x < region.x1; x++) {
+      const v = Math.round(px(x, y));
       hist[Math.min(255, Math.max(0, v))]++;
       total++;
     }
@@ -248,35 +255,10 @@ function otsuThreshold(yc, W, H, halfBand) {
   return threshold;
 }
 
-// Preštej prehode v vodoravni črti
-function countTransitions(y, thresh, W) {
-  let count = 0;
-  let prev = readBrightness(0, y) < thresh ? 1 : 0;
-  for (let x = 1; x < W; x++) {
-    const v = readBrightness(x, y) < thresh ? 1 : 0;
-    if (v !== prev) count++;
-    prev = v;
-  }
-  return count;
-}
-
-// Povprečna svetlost v pasu
-function avgBrightness(yc, halfBand, W, H) {
-  let sum = 0, n = 0;
-  const yStart = Math.max(0, yc - halfBand);
-  const yEnd = Math.min(H, yc + halfBand + 1);
-  for (let y = yStart; y < yEnd; y++)
-    for (let x = 2; x < W-2; x += 2) {
-      sum += readBrightness(x, y);
-      n++;
-    }
-  return n > 0 ? sum / n : 255;
-}
-
-// Simulator branje
+// ---------- Simulator branje ----------
 function readBitSim(yc, xC) {
   let s=0,n=0;
-  for (const dx of [-8,-4,4,8]) { s += readPixel(xC+dx, yc); n++; }
+  for (const dx of [-8,-4,4,8]) { s += pxBit(xC+dx, yc); n++; }
   return s > n/2 ? 1 : 0;
 }
 function readWindowAt(Pphys, cStart) {
@@ -289,10 +271,10 @@ function readWindowAt(Pphys, cStart) {
   return { bits, c: LOOKUP[bits] };
 }
 function findCellEdgesSim(xC, yc) {
-  const col = readPixel(xC, yc);
+  const col = pxBit(xC, yc);
   let L=null, R=null;
-  for (let d=1;d<80;d++) if (readPixel(xC-d,yc)!==col){L=xC-d+0.5;break;}
-  for (let d=1;d<80;d++) if (readPixel(xC+d,yc)!==col){R=xC+d-0.5;break;}
+  for (let d=1;d<80;d++) if (pxBit(xC-d,yc)!==col){L=xC-d+0.5;break;}
+  for (let d=1;d<80;d++) if (pxBit(xC+d,yc)!==col){R=xC+d-0.5;break;}
   return { L, R };
 }
 function readDynamic(P) {
@@ -344,7 +326,7 @@ function readDynamic(P) {
     bitPoints.push({ x:xc2, y:yC1, bit:i+4 });
   }
   return {
-    c:cRef, cStart, cRef, offset, bits:chosen.bits, cApprox,
+    ok:true, c:cRef, cStart, cRef, offset, bits:chosen.bits, cApprox,
     chosenK:chosen.k, bestLen:bestL, bestStart:bestS,
     numWindows:wins.length, validWindows:wins.filter(x=>x.c>=0).length,
     allC:wins.map(x=>x.c), delta, widthPx:w, calFactor:cal,
@@ -355,21 +337,26 @@ function readDynamic(P) {
   };
 }
 
-// ============================================================
-// AVTOMATSKO BRANJE IZ KAMERE
-// ============================================================
+// ---------- AVTOMATSKO BRANJE ----------
 function readFromCamera() {
   const W = processC.width, H = processC.height, cx = Math.floor(W/2);
 
-  // Global threshold (Otsu na celotni sliki)
-  const globalTh = otsuThreshold(H/2, W, H, H/2);
+  // Global threshold
+  const globalTh = otsuThreshold({x0:4, y0:4, x1:W-4, y1:H-4}, W, H);
 
-  // ---- 1) Najdi CLOCK vrstico: y z največ prehodi ----
+  // ---- Najdi CLOCK: y z največ prehodi ----
+  const yProfile = new Int16Array(H);
   let bestY = -1, bestT = 0;
-  const scanStart = 4, scanEnd = H - 4;
-  for (let y = scanStart; y < scanEnd; y++) {
-    const t = countTransitions(y, globalTh, W);
-    if (t > bestT) { bestT = t; bestY = y; }
+  for (let y = 6; y < H - 6; y++) {
+    let count = 0;
+    let prev = px(2, y) < globalTh ? 1 : 0;
+    for (let x = 4; x < W - 4; x += 2) {
+      const v = px(x, y) < globalTh ? 1 : 0;
+      if (v !== prev) count++;
+      prev = v;
+    }
+    yProfile[y] = count;
+    if (count > bestT) { bestT = count; bestY = y; }
   }
   if (bestY < 0 || bestT < 6) {
     return { ok:false, reason:'CLOCK ni najden (bestT='+bestT+')',
@@ -377,19 +364,19 @@ function readFromCamera() {
              yRow0:0, yRow1:0, yRow2:0, rowH:0, detected:false };
   }
 
-  // Zgladi bestY: poišči težišče vrhov v oknu ±5
+  // Zgladi y CLOCK: težišče vrhov v oknu ±5
   let sumW = 0, sumYW = 0;
   for (let y = Math.max(0, bestY-5); y <= Math.min(H-1, bestY+5); y++) {
-    const t = countTransitions(y, globalTh, W);
+    const t = yProfile[y];
     sumW += t; sumYW += y * t;
   }
-  const yRow2 = Math.round(sumYW / sumW);
+  const yRow2 = Math.round(sumYW / Math.max(1, sumW));
 
-  // ---- 2) Preberi prehode v CLOCK in izračunaj širino celice ----
+  // ---- Preberi prehode v CLOCK in izračunaj širino celice ----
   const clockTrans = [];
-  let prev = readBrightness(0, yRow2) < globalTh ? 1 : 0;
+  let prev = px(0, yRow2) < globalTh ? 1 : 0;
   for (let x = 1; x < W; x++) {
-    const v = readBrightness(x, yRow2) < globalTh ? 1 : 0;
+    const v = px(x, yRow2) < globalTh ? 1 : 0;
     if (v !== prev) clockTrans.push(x);
     prev = v;
   }
@@ -408,24 +395,38 @@ function readFromCamera() {
              yRow0:0, yRow1:0, yRow2, rowH:0, detected:false };
   }
 
-  // ---- 3) Row height = cellPx (kvadratne celice 5×5 mm) ----
-  // Poišči yRow1 in yRow0 tako, da gremo navzgor za cellPx
-  let yRow1 = Math.round(yRow2 - cellPx);
-  let yRow0 = Math.round(yRow2 - 2*cellPx);
+  // ---- Poišči yRow0 in yRow1: išči naslednja vrhova profile navzgor ----
+  // Ker so vse tri vrstice enake višine kot cellPx (kvadratne celice 5×5 mm),
+  // so tudi vrhovi v profilu razporejeni po cellPx.
+  const expectedGap = cellPx;
+  const yRow1 = Math.round(yRow2 - expectedGap);
+  const yRow0 = Math.round(yRow2 - 2 * expectedGap);
 
-  // Robna varnost
-  if (yRow0 < 2) yRow0 = 2;
-  if (yRow1 < 2) yRow1 = 2;
+  // Zgladi tudi yRow1 in yRow0 z težiščem
+  function findPeakNear(yEst) {
+    let sw = 0, syw = 0;
+    const ylo = Math.max(2, yEst - 8), yhi = Math.min(H-3, yEst + 8);
+    for (let y = ylo; y <= yhi; y++) {
+      const t = yProfile[y];
+      sw += t; syw += y * t;
+    }
+    return Math.round(syw / Math.max(1, sw));
+  }
+  const yRow1Final = findPeakNear(yRow1);
+  const yRow0Final = findPeakNear(yRow0);
 
-  // ---- 4) Threshold za vsako vrstico (Otsu) + offset ----
-  let th0 = otsuThreshold(yRow0, W, H, 3);
-  let th1 = otsuThreshold(yRow1, W, H, 3);
-  let th2 = otsuThreshold(yRow2, W, H, 3);
-  th0 = Math.max(0, Math.min(255, th0 + thOffset));
-  th1 = Math.max(0, Math.min(255, th1 + thOffset));
-  th2 = Math.max(0, Math.min(255, th2 + thOffset));
+  // ---- Threshold za vsako vrstico + offset ----
+  function thForY(yc) {
+    return otsuThreshold({x0:4, y0:Math.max(0,yc-3), x1:W-4, y1:Math.min(H,yc+4)}, W, H);
+  }
+  let th0 = thForY(yRow0Final) + thOffset;
+  let th1 = thForY(yRow1Final) + thOffset;
+  let th2 = thForY(yRow2) + thOffset;
+  th0 = Math.max(0, Math.min(255, th0));
+  th1 = Math.max(0, Math.min(255, th1));
+  th2 = Math.max(0, Math.min(255, th2));
 
-  // ---- 5) Filtriraj prehode CLOCK ----
+  // ---- Filtriraj prehode ----
   const good = [clockTrans[0]];
   for (let i = 1; i < clockTrans.length; i++) {
     const g = clockTrans[i] - good[good.length-1];
@@ -434,12 +435,12 @@ function readFromCamera() {
   }
   if (good.length < 5) {
     return { ok:false, reason:'Premalo veljavnih celic',
-             thresholds:{th0,th1,th2}, yRow0, yRow1, yRow2,
+             thresholds:{th0,th1,th2}, yRow0:yRow0Final, yRow1:yRow1Final, yRow2,
              rowH: cellPx, detected:true, detectedTrans: bestT };
   }
   const numCells = good.length - 1;
 
-  // ---- 6) Preberi celice z glasovanjem ----
+  // ---- Preberi celice z glasovanjem ----
   const cellCenters = [], upper = [], lower = [];
   for (let i = 0; i < numCells; i++) {
     const xc = Math.round((good[i] + good[i+1]) / 2);
@@ -447,15 +448,15 @@ function readFromCamera() {
     let v0=0, v1=0, nn=0;
     for (const dx of [-8,-4,0,4,8]) {
       if (xc+dx < 1 || xc+dx > W-1) continue;
-      v0 += readBrightness(xc+dx, yRow0) < th0 ? 1 : 0;
-      v1 += readBrightness(xc+dx, yRow1) < th1 ? 1 : 0;
+      v0 += px(xc+dx, yRow0Final) < th0 ? 1 : 0;
+      v1 += px(xc+dx, yRow1Final) < th1 ? 1 : 0;
       nn++;
     }
     upper.push(v0 > nn/2 ? 1 : 0);
     lower.push(v1 > nn/2 ? 1 : 0);
   }
 
-  // ---- 7) Vsa 8-bitna okna ----
+  // ---- Vsa 8-bitna okna ----
   const cands = [];
   for (let i = 0; i <= numCells-4; i++) {
     let bits = 0;
@@ -467,10 +468,11 @@ function readFromCamera() {
   }
   if (cands.length === 0) {
     return { ok:false, reason:'Ni kandidatov',
-             thresholds:{th0,th1,th2}, yRow0, yRow1, yRow2,
+             thresholds:{th0,th1,th2}, yRow0:yRow0Final, yRow1:yRow1Final, yRow2,
              rowH: cellPx, detected:true, detectedTrans: bestT };
   }
 
+  // ---- Najdaljši niz ----
   let bestS=0, bestL=0, curS=0;
   for (let k = 0; k < cands.length; k++) {
     const p = cands[k-1], w = cands[k];
@@ -480,16 +482,18 @@ function readFromCamera() {
   if (cands.length-curS>bestL) { bestL = cands.length-curS; bestS = curS; }
   if (bestL < 1) {
     return { ok:false, reason:'Ni niza',
-             thresholds:{th0,th1,th2}, yRow0, yRow1, yRow2,
+             thresholds:{th0,th1,th2}, yRow0:yRow0Final, yRow1:yRow1Final, yRow2,
              rowH: cellPx, detected:true, detectedTrans: bestT };
   }
 
+  // ---- Katera celica vsebuje cx ----
   let cellAtCx = -1;
   for (let i = 0; i < numCells; i++) {
     if (good[i] <= cx && cx < good[i+1]) { cellAtCx = i; break; }
   }
   if (cellAtCx < 0) cellAtCx = Math.floor(numCells/2);
 
+  // ---- Izbira kandidata ----
   let chosen = null, chosenCRef = null;
   for (let k = bestS; k < bestS+bestL; k++) {
     const cand = cands[k];
@@ -511,7 +515,7 @@ function readFromCamera() {
   }
   if (!chosen) {
     return { ok:false, reason:'Ni okna',
-             thresholds:{th0,th1,th2}, yRow0, yRow1, yRow2,
+             thresholds:{th0,th1,th2}, yRow0:yRow0Final, yRow1:yRow1Final, yRow2,
              rowH: cellPx, detected:true, detectedTrans: bestT };
   }
 
@@ -529,8 +533,8 @@ function readFromCamera() {
   for (let k = 0; k < 4; k++) {
     const gi = chosen.i + k;
     if (gi < 0 || gi >= numCells) continue;
-    bitPoints.push({ x: cellCenters[gi], y: yRow0, bit: k });
-    bitPoints.push({ x: cellCenters[gi], y: yRow1, bit: k+4 });
+    bitPoints.push({ x: cellCenters[gi], y: yRow0Final, bit: k });
+    bitPoints.push({ x: cellCenters[gi], y: yRow1Final, bit: k+4 });
   }
 
   return {
@@ -540,7 +544,7 @@ function readFromCamera() {
     bitPoints,
     gridLines: good,
     refLeft, refRight,
-    yRow0, yRow1, yRow2, rowH: cellPx,
+    yRow0: yRow0Final, yRow1: yRow1Final, yRow2, rowH: cellPx,
     cellAtCx, chosenI: chosen.i, bestLen: bestL, bestStart: bestS,
     numCells, transitions: good,
     cands, thresholds: { th0, th1, th2 },
@@ -548,127 +552,7 @@ function readFromCamera() {
   };
 }
 
-// Ročni način (uporablja ROI sliders)
-function readFromCameraManual() {
-  const W = processC.width, H = processC.height, cx = Math.floor(W/2);
-  const roiPx = Math.max(20, H * roiSize);
-  const y0 = H * roiOffset - roiPx/2;
-  const rowPx = roiPx/3;
-  const yRow0 = Math.round(y0 + rowPx*0.5);
-  const yRow1 = Math.round(y0 + rowPx*1.5);
-  const yRow2 = Math.round(y0 + rowPx*2.5);
-
-  let th0 = manualTh, th1 = manualTh, th2 = manualTh;
-  th0 = Math.max(0, Math.min(255, th0 + thOffset));
-  th1 = Math.max(0, Math.min(255, th1 + thOffset));
-  th2 = Math.max(0, Math.min(255, th2 + thOffset));
-
-  const thresh2 = th2;
-  const transitions = [];
-  let prev = readBrightness(0, yRow2) < thresh2 ? 1 : 0;
-  for (let x = 1; x < W; x++) {
-    const v = readBrightness(x, yRow2) < thresh2 ? 1 : 0;
-    if (v !== prev) transitions.push(x);
-    prev = v;
-  }
-  if (transitions.length < 6) {
-    return { ok:false, reason:'Premalo prehodov',
-             thresholds:{th0,th1,th2}, yRow0, yRow1, yRow2,
-             rowH: rowPx, detected:false };
-  }
-  const rawGaps = [];
-  for (let i = 1; i < transitions.length; i++) rawGaps.push(transitions[i]-transitions[i-1]);
-  const sortedGaps = [...rawGaps].sort((a,b)=>a-b);
-  const medGap = sortedGaps[Math.floor(sortedGaps.length/2)];
-
-  const good = [transitions[0]];
-  for (let i = 1; i < transitions.length; i++) {
-    const g = transitions[i] - good[good.length-1];
-    if (g >= medGap*0.5 && g <= medGap*1.6) good.push(transitions[i]);
-    else if (g > medGap*1.6) good.push(transitions[i]);
-  }
-  if (good.length < 5) {
-    return { ok:false, reason:'Premalo celic',
-             thresholds:{th0,th1,th2}, yRow0, yRow1, yRow2,
-             rowH: rowPx, detected:false };
-  }
-  const numCells = good.length - 1;
-  const cellCenters = [], upper = [], lower = [];
-  for (let i = 0; i < numCells; i++) {
-    const xc = Math.round((good[i] + good[i+1]) / 2);
-    cellCenters.push(xc);
-    let v0=0, v1=0, nn=0;
-    for (const dx of [-8,-4,0,4,8]) {
-      if (xc+dx < 1 || xc+dx > W-1) continue;
-      v0 += readBrightness(xc+dx, yRow0) < th0 ? 1 : 0;
-      v1 += readBrightness(xc+dx, yRow1) < th1 ? 1 : 0;
-      nn++;
-    }
-    upper.push(v0 > nn/2 ? 1 : 0);
-    lower.push(v1 > nn/2 ? 1 : 0);
-  }
-  const cands = [];
-  for (let i = 0; i <= numCells-4; i++) {
-    let bits = 0;
-    for (let k = 0; k < 4; k++) {
-      bits |= upper[i+k] << k;
-      bits |= lower[i+k] << (4+k);
-    }
-    cands.push({ i, bits, c: LOOKUP[bits] });
-  }
-  let bestS=0, bestL=0, curS=0;
-  for (let k = 0; k < cands.length; k++) {
-    const p = cands[k-1], w = cands[k];
-    const cons = k>0 && p.c>=0 && w.c>=0 && ((w.c-p.c+256)%256===1);
-    if (!cons) { if (k-curS>bestL){bestL=k-curS;bestS=curS;} curS=k; }
-  }
-  if (cands.length-curS>bestL) { bestL = cands.length-curS; bestS = curS; }
-  let cellAtCx = -1;
-  for (let i = 0; i < numCells; i++) {
-    if (good[i] <= cx && cx < good[i+1]) { cellAtCx = i; break; }
-  }
-  if (cellAtCx < 0) cellAtCx = Math.floor(numCells/2);
-  let chosen=null, chosenCRef=null;
-  for (let k=bestS;k<bestS+bestL;k++) {
-    const cand = cands[k];
-    if (cand.c<0) continue;
-    if (cellAtCx >= cand.i && cellAtCx <= cand.i+3) {
-      chosen = cand; chosenCRef = cand.c + (cellAtCx - cand.i); break;
-    }
-  }
-  if (!chosen) {
-    let bd = Infinity;
-    for (let k=bestS;k<bestS+bestL;k++) {
-      const cand = cands[k];
-      if (cand.c<0) continue;
-      const d = Math.abs(cand.i - cellAtCx);
-      if (d < bd) { bd = d; chosen = cand; chosenCRef = cand.c + (cellAtCx - cand.i); }
-    }
-  }
-  if (!chosen) return { ok:false, reason:'Ni okna',
-    thresholds:{th0,th1,th2}, yRow0, yRow1, yRow2, rowH: rowPx, detected:false };
-  const cRef = chosenCRef;
-  const refLeft = good[cellAtCx], refRight = good[cellAtCx+1];
-  const refW = refRight - refLeft;
-  let delta = (cx - refLeft) / refW * 5;
-  delta = Math.max(0, Math.min(5, delta));
-  const mm_phys = cRef * 5 + delta;
-  const mm = Math.max(0, Math.min(1000, mm_phys - CODE_OFFSET));
-  const bitPoints = [];
-  for (let k = 0; k < 4; k++) {
-    const gi = chosen.i + k;
-    if (gi < 0 || gi >= numCells) continue;
-    bitPoints.push({ x: cellCenters[gi], y: yRow0, bit: k });
-    bitPoints.push({ x: cellCenters[gi], y: yRow1, bit: k+4 });
-  }
-  return { ok:true, mm, mm_phys, c:cRef, delta, cellPx: medGap, cellW: refW,
-    bits: chosen.bits, bitPoints, gridLines: good, refLeft, refRight,
-    yRow0, yRow1, yRow2, rowH: rowPx,
-    cellAtCx, chosenI: chosen.i, bestLen: bestL, bestStart: bestS,
-    numCells, transitions: good, cands, thresholds:{th0,th1,th2},
-    detected:false };
-}
-
+// ---------- Snemanje ----------
 function snapshotToProcess() {
   if (video.readyState < 2) return;
   const W = processC.width, H = processC.height;
@@ -676,39 +560,38 @@ function snapshotToProcess() {
   if (orientation === 'h') {
     pctx.drawImage(video, 0, 0, W, H);
   } else {
+    // Rotiraj 90° CW
     pctx.translate(W/2, H/2);
     pctx.rotate(Math.PI/2);
-    const ratio = video.videoWidth / video.videoHeight;
-    let dw = H, dh = H/ratio;
-    if (dh < W) { dh = W; dw = W*ratio; }
-    pctx.drawImage(video, -dw/2, -dh/2, dw, dh);
+    pctx.drawImage(video, -W/2, -H/2, W, H);
   }
   pctx.restore();
 }
 
+// ---------- Vodila ----------
 function drawGuidesOnOverlay(debug) {
   const W = overlay.width, H = overlay.height;
   ovctx.clearRect(0,0,W,H);
 
-  // KONTRAST – tanki pasovi okoli vrstic
+  // KONTRAST
   if (contrastOn && debug && debug.thresholds && debug.yRow0 !== undefined
-      && debug.yRow2 > 0) {
+      && debug.yRow2 > 0 && frameData) {
     const th = debug.thresholds;
     const yR0 = debug.yRow0, yR1 = debug.yRow1, yR2 = debug.yRow2;
-    const bandH = Math.max(4, Math.round(debug.rowH * 0.5));
+    const bandH = Math.max(4, Math.round((debug.rowH||30) * 0.5));
 
     for (let x = 4; x < W-4; x += 3) {
-      const v0 = readBrightness(x, yR0);
+      const v0 = px(x, yR0);
       ovctx.fillStyle = v0 < th.th0 ? 'rgba(0,100,255,0.6)' : 'rgba(255,60,60,0.45)';
       ovctx.fillRect(x, yR0 - bandH/2, 3, bandH);
     }
     for (let x = 4; x < W-4; x += 3) {
-      const v1 = readBrightness(x, yR1);
+      const v1 = px(x, yR1);
       ovctx.fillStyle = v1 < th.th1 ? 'rgba(0,100,255,0.6)' : 'rgba(255,60,60,0.45)';
       ovctx.fillRect(x, yR1 - bandH/2, 3, bandH);
     }
     for (let x = 4; x < W-4; x += 3) {
-      const v2 = readBrightness(x, yR2);
+      const v2 = px(x, yR2);
       ovctx.fillStyle = v2 < th.th2 ? 'rgba(0,100,255,0.6)' : 'rgba(255,60,60,0.45)';
       ovctx.fillRect(x, yR2 - bandH/2, 3, bandH);
     }
@@ -723,7 +606,7 @@ function drawGuidesOnOverlay(debug) {
     ovctx.stroke();
   }
 
-  // Referenčna rdeča črta
+  // Referenčna rdeča
   ovctx.fillStyle = 'red';
   ovctx.fillRect(W/2 - lineThick/2, 0, lineThick, H);
 
@@ -777,6 +660,7 @@ function update() {
     $('fineVal').textContent = fIn.toFixed(2);
     $('totalVal').textContent = P.toFixed(2)+' mm';
     drawSimulator(P);
+    cacheFrame();
     ovctx.drawImage(processC, 0, 0, overlay.width, overlay.height);
     const r = readDynamic(P);
     drawGuidesOnOverlay(r);
@@ -785,25 +669,24 @@ function update() {
     $('deltaVal').textContent = r.delta.toFixed(2) + ' mm';
     $('boundaryWarn').textContent = (r.delta < 0.2 || r.delta > 4.8) ? '⚠ rob' : '';
     $('testOut').textContent =
-      'P=' + P.toFixed(2) + '  Pphys=' + (P+CODE_OFFSET).toFixed(2) + '\n' +
+      'SIMULATOR\nP=' + P.toFixed(2) + '  Pphys=' + (P+CODE_OFFSET).toFixed(2) + '\n' +
       'bits=' + bitsStr(r.bits) + '  cRef=' + r.cRef + '\n' +
       'δ=' + r.delta.toFixed(2) + '  mm=' + r.mm.toFixed(2) +
       '  napaka=' + (r.mm-P).toFixed(2);
   } else if (video.readyState >= 2) {
     snapshotToProcess();
+    cacheFrame();
     ovctx.drawImage(processC, 0, 0, overlay.width, overlay.height);
-
-    const r = autoMode ? readFromCamera() : readFromCameraManual();
+    const r = readFromCamera();
     drawGuidesOnOverlay(r);
-
     if (r.ok) {
       outEl.textContent = r.mm.toFixed(2) + ' mm';
       $('deltaVal').textContent = r.delta.toFixed(2) + ' mm';
       $('boundaryWarn').textContent = (r.delta < 0.2 || r.delta > 4.8) ? '⚠ rob' : '';
       $('napakaVal').textContent = '–';
       $('testOut').textContent =
-        '=== ' + (autoMode ? 'AVTOMATIKA' : 'ROČNO') + ' ===\n' +
-        'detected CLOCK: ' + r.detected + '  trans=' + (r.detectedTrans||'?') + '\n' +
+        '=== AVTOMATIKA ===\n' +
+        'CLOCK trans=' + r.detectedTrans + '\n' +
         'yRow0=' + r.yRow0 + '  yRow1=' + r.yRow1 + '  yRow2=' + r.yRow2 + '\n' +
         'rowH=' + r.rowH.toFixed(1) + ' px  cellPx=' + r.cellPx.toFixed(1) + ' px\n' +
         'th0=' + r.thresholds.th0.toFixed(0) +
@@ -820,12 +703,13 @@ function update() {
       $('boundaryWarn').textContent = '';
       $('napakaVal').textContent = '–';
       $('testOut').textContent = 'Branje ni uspelo: ' + (r.reason || '') +
-        '\ndetected=' + r.detected + '  yRow2=' + r.yRow2;
+        '\nyRow0=' + r.yRow0 + ' yRow1=' + r.yRow1 + ' yRow2=' + r.yRow2;
     }
   }
   requestAnimationFrame(update);
 }
 
+// ---------- Test ----------
 function testAdjacent() {
   if (mode !== 'sim') {
     mode='sim'; stopCamera();
@@ -836,6 +720,7 @@ function testAdjacent() {
   let errs = 0;
   for (let mm = 0; mm <= 30; mm += 2.5) {
     drawSimulator(mm);
+    cacheFrame();
     const r = readDynamic(mm);
     const err = r.mm - mm;
     const ok = Math.abs(err) < 1;
@@ -854,6 +739,7 @@ function testAdjacent() {
   $('testOut').textContent = lines.join('\n');
 }
 
+// ---------- A4 izvoz ----------
 function exportA4() {
   const DPI = 300, PPMM = DPI/25.4;
   const W_PX = Math.round(297*PPMM), H_PX = Math.round(210*PPMM);
@@ -863,10 +749,8 @@ function exportA4() {
   ctx.fillStyle = 'white'; ctx.fillRect(0,0,W_PX,H_PX);
   const M = 10*PPMM, CELL_PX = 5*PPMM;
   const N = 53, stripStarts = [70,335,600,865], top = 14*PPMM;
-
   ctx.fillStyle = '#222'; ctx.font = `bold ${4*PPMM}px sans-serif`;
   ctx.fillText('Premerka – prikaz 0–1000 mm (koda 100–1100 mm)', M, 6*PPMM);
-
   stripStarts.forEach((sMM, idx) => {
     const y0 = top + idx*(26+6)*PPMM;
     if (y0 + 26*PPMM > H_PX - M) return;
@@ -886,7 +770,6 @@ function exportA4() {
     ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
     ctx.strokeRect(M+0.5, yc+0.5, N*CELL_PX, 3*CELL_PX);
   });
-
   cvs.toBlob(b => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(b);
@@ -896,6 +779,7 @@ function exportA4() {
   }, 'image/jpeg', 0.95);
 }
 
+// ---------- Kamere ----------
 async function listCameras() {
   try {
     const tmp = await navigator.mediaDevices.getUserMedia({ video:true });
@@ -915,7 +799,7 @@ async function listCameras() {
       sel.value = currentDeviceId;
     }
     sel.onchange = () => { currentDeviceId = sel.value; restartCamera(); };
-  } catch (e) { statusEl.textContent = 'Napaka seznama: '+e.message; }
+  } catch (e) { statusEl.textContent = 'Napaka: '+e.message; }
 }
 async function startCamera() {
   try {
@@ -945,40 +829,45 @@ function toggleOrientation() {
   ovctx.clearRect(0,0,overlay.width,overlay.height);
 }
 
-function setAuto(on) {
-  autoMode = on;
-  $('roiSize').disabled = on;
-  $('roiOffset').disabled = on;
-  $('thSlider').disabled = on;
-  statusEl.textContent = on ? 'AVTOMATIKA' : 'ROČNO';
+// Ob nalaganju videa: nastavi velikost canvasa in aspect ratio wrap-a
+function onVideoMeta() {
+  const W = video.videoWidth || 800;
+  const H = video.videoHeight || 600;
+  overlay.width = W; overlay.height = H;
+  processC.width = W; processC.height = H;
+  camWrap.style.aspectRatio = W + ' / ' + H;
 }
 
 overlay.width = 800; overlay.height = 600;
 processC.width = 800; processC.height = 600;
-video.addEventListener('loadedmetadata', () => {
-  const W = video.videoWidth || 800, H = video.videoHeight || 600;
-  overlay.width = W; overlay.height = H;
-  processC.width = W; processC.height = H;
-});
 
 $('toggle').onclick = toggleMode;
 $('testBtn').onclick = testAdjacent;
 $('exportBtn').onclick = exportA4;
 $('orientBtn').onclick = toggleOrientation;
-$('roiSize').oninput = e => { roiSize = e.target.value/100; $('roiSizeVal').textContent = e.target.value+' %'; };
-$('roiOffset').oninput = e => { roiOffset = e.target.value/100; $('roiOffsetVal').textContent = e.target.value+' %'; };
+$('roiSize').oninput = e => { $('roiSizeVal').textContent = e.target.value+' %'; };
+$('roiOffset').oninput = e => { $('roiOffsetVal').textContent = e.target.value+' %'; };
 $('lineThick').oninput = e => { lineThick = parseInt(e.target.value); $('lineThickVal').textContent = lineThick+' px'; };
 $('debugChk').onchange = e => { debugOn = e.target.checked; };
 $('contrastChk').onchange = e => { contrastOn = e.target.checked; };
-$('autoChk').onchange = e => setAuto(e.target.checked);
+$('autoChk').onchange = e => {
+  autoMode = e.target.checked;
+  $('roiSize').disabled = autoMode;
+  $('roiOffset').disabled = autoMode;
+  $('thSlider').disabled = autoMode;
+  statusEl.textContent = autoMode ? 'AVTOMATIKA' : 'ROČNO';
+};
 $('thSlider').oninput = e => { manualTh = parseInt(e.target.value); $('thVal').textContent = manualTh; };
 $('thOffset').oninput = e => {
   thOffset = parseInt(e.target.value);
   $('thOffsetVal').textContent = (thOffset > 0 ? '+' : '') + thOffset;
 };
 
-setAuto(true);
-listCameras().then(() => startCamera().then(() => requestAnimationFrame(update)));
+video.addEventListener('loadedmetadata', onVideoMeta);
+listCameras().then(() => startCamera().then(() => {
+  if (video.readyState >= 1) onVideoMeta();
+  requestAnimationFrame(update);
+}));
 </script>
 </body>
 </html>
