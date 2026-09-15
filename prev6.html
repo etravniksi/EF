@@ -4,74 +4,47 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#111">
-<title>Premerka</title>
+<title>Premerka – CLOCK grid reading</title>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body {
-    margin: 0; padding: 0;
-    font-family: -apple-system, Roboto, sans-serif;
-    background: #111; color: #eee;
-    overflow-x: hidden; touch-action: manipulation;
-  }
-  body { display: flex; flex-direction: column; align-items: center; padding: 8px 4px 20px; }
-  .camera-wrap {
-    position: relative;
-    width: 90vw; max-width: 560px;
-    aspect-ratio: 4 / 3;
-    background: #000;
-    border: 2px solid #333; border-radius: 12px;
-    overflow: hidden; margin-bottom: 10px;
-  }
-  #v { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
-  #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
-  #process { display: none; }
-  .controls { width: 100vw; max-width: 640px; display: flex; flex-direction: column; gap: 10px; padding: 0 12px; }
-  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  button {
-    padding: 14px 18px; font-size: clamp(15px, 4vw, 20px);
-    border: none; border-radius: 12px;
-    background: #4f4; color: #111; font-weight: bold;
-    box-shadow: 0 4px 0 #2a2; flex: 1; min-height: 52px; white-space: nowrap;
-  }
-  button:active { transform: translateY(3px); box-shadow: 0 2px 0 #2a2; }
-  button.alt { background: #48f; color: #fff; box-shadow: 0 4px 0 #25a; }
-  button.export { background: #f90; color: #111; box-shadow: 0 4px 0 #a60; }
-  button.small { flex: 0 0 auto; min-width: auto; padding: 10px 16px; font-size: 14px; }
-  select {
-    flex: 1; min-width: 120px; padding: 12px 14px;
-    font-size: 15px; background: #222; color: #eee;
-    border: 2px solid #444; border-radius: 10px; -webkit-appearance: none;
-  }
-  input[type=range] {
-    -webkit-appearance: none; appearance: none;
-    flex: 1; min-width: 100px; height: 60px;
-    background: transparent; margin: 0; touch-action: none;
-  }
-  input[type=range]::-webkit-slider-runnable-track {
-    height: 20px; background: #333; border-radius: 10px; border: 2px solid #555;
-  }
-  input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none; appearance: none;
-    width: 30px; height: 30px; background: #48f; border: 3px solid #fff;
-    border-radius: 50%; margin-top: -8px;
-  }
-  input[type=range]::-moz-range-track { height: 20px; background: #333; border-radius: 10px; border: 2px solid #555; }
-  input[type=range]::-moz-range-thumb { width: 30px; height: 30px; background: #48f; border: 3px solid #fff; border-radius: 50%; }
-  #rezultat { font-size: clamp(34px, 10vw, 56px); font-weight: bold; color: #4f4; line-height: 1.1; }
-  #totalVal, .big { font-size: clamp(26px, 7vw, 44px); font-weight: bold; color: #4f4; }
-  .val { font-size: clamp(16px, 4.5vw, 26px); font-weight: bold; color: #4f4; }
-  .label { font-size: clamp(14px, 4vw, 20px); color: #bbb; font-weight: bold; min-width: 90px; flex-shrink: 0; }
-  #status { font-size: clamp(12px, 3.3vw, 16px); color: #888; margin-left: auto; }
-  .warn { color: #fa0; font-weight: bold; font-size: clamp(14px, 4vw, 20px); }
-  #testOut {
-    font-family: ui-monospace, monospace;
-    font-size: clamp(10px, 2.7vw, 13px); color: #8f8;
-    white-space: pre; max-height: 40vh; overflow: auto;
-    background: #000; padding: 10px; border-radius: 10px;
-    line-height: 1.35; width: 100%;
-  }
-  .debug-toggle { display: flex; align-items: center; gap: 8px; font-size: 16px; color: #bbb; }
-  input[type=checkbox] { width: 22px; height: 22px; }
+  html, body { margin:0; padding:0; font-family:-apple-system,Roboto,sans-serif;
+    background:#111; color:#eee; overflow-x:hidden; touch-action:manipulation; }
+  body { display:flex; flex-direction:column; align-items:center; padding:8px 4px 20px; }
+  .camera-wrap { position:relative; width:90vw; max-width:560px; aspect-ratio:4/3;
+    background:#000; border:2px solid #333; border-radius:12px;
+    overflow:hidden; margin-bottom:10px; }
+  #v { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; }
+  #overlay { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:2; }
+  #process { display:none; }
+  .controls { width:100vw; max-width:640px; display:flex; flex-direction:column; gap:10px; padding:0 12px; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  button { padding:14px 18px; font-size:clamp(15px,4vw,20px); border:none; border-radius:12px;
+    background:#4f4; color:#111; font-weight:bold; box-shadow:0 4px 0 #2a2; flex:1;
+    min-height:52px; white-space:nowrap; }
+  button:active { transform:translateY(3px); box-shadow:0 2px 0 #2a2; }
+  button.alt { background:#48f; color:#fff; box-shadow:0 4px 0 #25a; }
+  button.export { background:#f90; color:#111; box-shadow:0 4px 0 #a60; }
+  button.small { flex:0 0 auto; min-width:auto; padding:10px 16px; font-size:14px; }
+  select { flex:1; min-width:120px; padding:12px 14px; font-size:15px;
+    background:#222; color:#eee; border:2px solid #444; border-radius:10px; -webkit-appearance:none; }
+  input[type=range] { -webkit-appearance:none; appearance:none; flex:1; min-width:100px;
+    height:60px; background:transparent; margin:0; touch-action:none; }
+  input[type=range]::-webkit-slider-runnable-track { height:20px; background:#333;
+    border-radius:10px; border:2px solid #555; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; appearance:none;
+    width:30px; height:30px; background:#48f; border:3px solid #fff;
+    border-radius:50%; margin-top:-8px; }
+  #rezultat { font-size:clamp(34px,10vw,56px); font-weight:bold; color:#4f4; }
+  #totalVal, .big { font-size:clamp(26px,7vw,44px); font-weight:bold; color:#4f4; }
+  .val { font-size:clamp(16px,4.5vw,26px); font-weight:bold; color:#4f4; }
+  .label { font-size:clamp(14px,4vw,20px); color:#bbb; font-weight:bold; min-width:90px; flex-shrink:0; }
+  #status { font-size:clamp(12px,3.3vw,16px); color:#888; margin-left:auto; }
+  .warn { color:#fa0; font-weight:bold; font-size:clamp(14px,4vw,20px); }
+  #testOut { font-family:ui-monospace,monospace; font-size:clamp(10px,2.7vw,13px);
+    color:#8f8; white-space:pre; max-height:45vh; overflow:auto; background:#000;
+    padding:10px; border-radius:10px; line-height:1.35; width:100%; }
+  .debug-toggle { display:flex; align-items:center; gap:8px; font-size:16px; color:#bbb; }
+  input[type=checkbox] { width:22px; height:22px; }
 </style>
 </head>
 <body>
@@ -83,10 +56,7 @@
 <canvas id="process"></canvas>
 
 <div class="controls">
-  <div class="row">
-    <span class="label">Kamera</span>
-    <select id="camSelect"></select>
-  </div>
+  <div class="row"><span class="label">Kamera</span><select id="camSelect"></select></div>
 
   <div class="row">
     <button id="orientBtn" class="small">Vodoravno</button>
@@ -100,8 +70,8 @@
 
   <div class="row">
     <span class="label">Debelina</span>
-    <input type="range" id="lineThick" min="1" max="12" step="1" value="3">
-    <span id="lineThickVal" class="val">3 px</span>
+    <input type="range" id="lineThick" min="1" max="12" step="1" value="4">
+    <span id="lineThickVal" class="val">4 px</span>
   </div>
 
   <div class="row">
@@ -118,7 +88,7 @@
   <div class="row">
     <label class="debug-toggle">
       <input type="checkbox" id="debugChk" checked>
-      Debug prikaz (krogci, črte, koordinate)
+      Debug prikaz (mreža, točke, koordinate)
     </label>
   </div>
 
@@ -132,23 +102,15 @@
     <input type="range" id="fine" min="-30" max="30" step="0.01" value="0">
     <span id="fineVal" class="val">0.00</span>
   </div>
-  <div class="row">
-    <span class="label">P</span>
-    <span id="totalVal" class="val big">0.00 mm</span>
-  </div>
-  <div class="row">
-    <span class="label">Prebrano</span>
-    <span id="rezultat">–</span>
-  </div>
-  <div class="row">
-    <span class="label">Napaka</span>
-    <span id="napakaVal" class="val">–</span>
-  </div>
-  <div class="row">
-    <span class="label">δ</span>
+  <div class="row"><span class="label">P</span>
+    <span id="totalVal" class="val big">0.00 mm</span></div>
+  <div class="row"><span class="label">Prebrano</span>
+    <span id="rezultat">–</span></div>
+  <div class="row"><span class="label">Napaka</span>
+    <span id="napakaVal" class="val">–</span></div>
+  <div class="row"><span class="label">δ</span>
     <span id="deltaVal" class="val">–</span>
-    <span id="boundaryWarn" class="warn"></span>
-  </div>
+    <span id="boundaryWarn" class="warn"></span></div>
   <div class="row"><span id="status">Kamera</span></div>
   <div id="testOut"></div>
 </div>
@@ -159,99 +121,90 @@ const CODE_OFFSET = 100;
 const P_MIN_MM = 0, P_MAX_MM = 1000;
 const DRAW_MIN_MM = 70, DRAW_MAX_MM = 1130;
 
-// ---------- De Bruijn ----------
+// ---------- De Bruijn B(2,8) ----------
 function deBruijn(k, n) {
-  const a = new Array(n + 1).fill(0), seq = [];
-  (function db(t, p) {
-    if (t > n) { if (n % p === 0) for (let i = 1; i <= p; i++) seq.push(a[i]); }
-    else { a[t] = a[t - p]; db(t + 1, p);
-      for (let j = a[t - p] + 1; j < k; j++) { a[t] = j; db(t + 1, t); } }
-  })(1, 1);
+  const a = new Array(n+1).fill(0), seq = [];
+  (function db(t,p){
+    if (t>n){ if(n%p===0) for(let i=1;i<=p;i++) seq.push(a[i]); }
+    else { a[t]=a[t-p]; db(t+1,p);
+      for(let j=a[t-p]+1;j<k;j++){ a[t]=j; db(t+1,t); } }
+  })(1,1);
   return seq;
 }
-const DB = deBruijn(2, 8);
+const DB = deBruijn(2,8);
 const LOOKUP = new Array(256).fill(-1);
 for (let i = 0; i < 256; i++) {
   let w = 0;
-  for (let j = 0; j < 8; j++) w |= DB[(i + j) & 0xFF] << j;
+  for (let j = 0; j < 8; j++) w |= DB[(i+j) & 0xFF] << j;
   LOOKUP[w] = i;
 }
 
 // ---------- Canvas ----------
-const video = $('v'), overlay = $('overlay'), ovctx = overlay.getContext('2d');
-const processC = $('process'), pctx = processC.getContext('2d', { willReadFrequently: true });
-const outEl = $('rezultat'), statusEl = $('status');
+const video    = $('v');
+const overlay  = $('overlay');
+const ovctx    = overlay.getContext('2d');
+const processC = $('process');
+const pctx     = processC.getContext('2d', { willReadFrequently:true });
+const outEl    = $('rezultat');
+const statusEl = $('status');
 
 const PX_PER_MM = 10, IDEAL_CELL_PX = 50, ROW_PX = 50, Y0 = 50;
-const Y_ROW0 = Y0, Y_ROW1 = Y0 + ROW_PX, Y_ROW2 = Y0 + 2 * ROW_PX;
-const yC0 = Y_ROW0 + 25, yC1 = Y_ROW1 + 25, yC2 = Y_ROW2 + 25;
+const Y_ROW0 = Y0, Y_ROW1 = Y0+ROW_PX, Y_ROW2 = Y0+2*ROW_PX;
+const yC0 = Y_ROW0+25, yC1 = Y_ROW1+25, yC2 = Y_ROW2+25;
 
 let mode = 'camera';
 let orientation = 'h';
 let stream = null, currentDeviceId = null;
-
-// Parametri
-let roiSize = 0.35;
-let roiOffset = 0.50;
-let lineThick = 3;
-let debugOn = true;
-
-// Debug podatki zadnjega branja
-let lastDebug = null;
+let roiSize = 0.35, roiOffset = 0.50;
+let lineThick = 4, debugOn = true;
 
 // ---------- Simulator risanje ----------
 function drawSimulator(P) {
   const Pphys = P + CODE_OFFSET;
-  const W = processC.width, H = processC.height, cx = W / 2;
-  const c0 = Math.floor(Pphys / 5);
-  const cMin = Math.floor(DRAW_MIN_MM / 5), cMax = Math.ceil(DRAW_MAX_MM / 5);
+  const W = processC.width, H = processC.height, cx = W/2;
+  const c0 = Math.floor(Pphys/5);
+  const cMin = Math.floor(DRAW_MIN_MM/5), cMax = Math.ceil(DRAW_MAX_MM/5);
 
-  pctx.fillStyle = 'white';
-  pctx.fillRect(0, 0, W, H);
-  const xOf = col => Math.round(cx + (col * 5 - Pphys) * PX_PER_MM);
+  pctx.fillStyle = 'white'; pctx.fillRect(0,0,W,H);
+  const xOf = col => Math.round(cx + (col*5 - Pphys) * PX_PER_MM);
 
-  for (let col = c0 - 20; col <= c0 + 24; col++) {
+  for (let col = c0-20; col <= c0+24; col++) {
     if (col < cMin || col > cMax) continue;
     const x = xOf(col), w = ROW_PX;
     pctx.fillStyle = DB[col & 0xFF] ? 'black' : 'white';
     pctx.fillRect(x, Y_ROW0, w, ROW_PX);
-    pctx.fillStyle = DB[(col + 4) & 0xFF] ? 'black' : 'white';
+    pctx.fillStyle = DB[(col+4) & 0xFF] ? 'black' : 'white';
     pctx.fillRect(x, Y_ROW1, w, ROW_PX);
     pctx.fillStyle = (col & 1) ? 'white' : 'black';
     pctx.fillRect(x, Y_ROW2, w, ROW_PX);
   }
 }
 
-// ---------- Vodila z debelino in debug oznakami ----------
+// ---------- Vodila na overlay ----------
 function drawGuidesOnOverlay(debug) {
   const W = overlay.width, H = overlay.height;
-  ovctx.clearRect(0, 0, W, H);
+  ovctx.clearRect(0,0,W,H);
   ovctx.lineWidth = lineThick;
-  ovctx.font = 'bold 11px monospace';
 
-  // Izračun ROI
+  // ROI
   let x0, y0, roiW, roiH;
   if (orientation === 'h') {
-    roiH = Math.max(20, H * roiSize);
-    roiW = W - 16;
-    x0 = 8;
-    y0 = H * roiOffset - roiH / 2;
+    roiH = Math.max(20, H * roiSize); roiW = W - 16; x0 = 8;
+    y0 = H * roiOffset - roiH/2;
   } else {
-    roiW = Math.max(20, W * roiSize);
-    roiH = H - 16;
-    x0 = W * roiOffset - roiW / 2;
-    y0 = 8;
+    roiW = Math.max(20, W * roiSize); roiH = H - 16; y0 = 8;
+    x0 = W * roiOffset - roiW/2;
   }
-  const x1 = x0 + roiW, y1 = y0 + roiH;
+  const x1 = x0+roiW, y1 = y0+roiH;
 
-  // Referenčna črta (nad/pod ROI, NE čez)
+  // Referenčna črta izven ROI
   ovctx.fillStyle = 'red';
   if (orientation === 'h') {
     ovctx.fillRect(W/2 - lineThick/2, 0, lineThick, y0);
-    ovctx.fillRect(W/2 - lineThick/2, y1, lineThick, H - y1);
+    ovctx.fillRect(W/2 - lineThick/2, y1, lineThick, H-y1);
   } else {
     ovctx.fillRect(0, H/2 - lineThick/2, x0, lineThick);
-    ovctx.fillRect(x1, H/2 - lineThick/2, W - x1, lineThick);
+    ovctx.fillRect(x1, H/2 - lineThick/2, W-x1, lineThick);
   }
 
   // Obroba ROI
@@ -259,201 +212,330 @@ function drawGuidesOnOverlay(debug) {
   ovctx.strokeRect(x0, y0, roiW, roiH);
 
   // Ločnice vrstic
-  ovctx.setLineDash([6, 4]);
+  ovctx.setLineDash([6,4]);
   ovctx.strokeStyle = 'rgba(255,60,60,0.6)';
   ovctx.beginPath();
   if (orientation === 'h') {
-    const rowPx = roiH / 3;
-    ovctx.moveTo(x0, y0 + rowPx); ovctx.lineTo(x1, y0 + rowPx);
-    ovctx.moveTo(x0, y0 + 2*rowPx); ovctx.lineTo(x1, y0 + 2*rowPx);
+    const rowPx = roiH/3;
+    ovctx.moveTo(x0, y0+rowPx); ovctx.lineTo(x1, y0+rowPx);
+    ovctx.moveTo(x0, y0+2*rowPx); ovctx.lineTo(x1, y0+2*rowPx);
   } else {
-    const colW = roiW / 3;
-    ovctx.moveTo(x0 + colW, y0); ovctx.lineTo(x0 + colW, y1);
-    ovctx.moveTo(x0 + 2*colW, y0); ovctx.lineTo(x0 + 2*colW, y1);
+    const colW = roiW/3;
+    ovctx.moveTo(x0+colW, y0); ovctx.lineTo(x0+colW, y1);
+    ovctx.moveTo(x0+2*colW, y0); ovctx.lineTo(x0+2*colW, y1);
   }
-  ovctx.stroke();
-  ovctx.setLineDash([]);
+  ovctx.stroke(); ovctx.setLineDash([]);
 
-  // Oznake vrstic
-  ovctx.fillStyle = 'rgba(80,160,255,0.95)';
-  if (orientation === 'h') {
-    const rowPx = roiH / 3;
-    ovctx.fillText('bit0-3', x0 + 6, y0 + 14);
-    ovctx.fillText('bit4-7', x0 + 6, y0 + rowPx + 14);
-    ovctx.fillText('CLOCK',  x0 + 6, y0 + 2*rowPx + 14);
-  } else {
-    const colW = roiW / 3;
-    ovctx.fillText('b0-3', x0 + 4, 20);
-    ovctx.fillText('b4-7', x0 + colW + 4, 20);
-    ovctx.fillText('CLK',  x0 + 2*colW + 4, 20);
-  }
-
-  // Trikotniki na sredini vsake vrstice
-  ovctx.fillStyle = 'red';
-  if (orientation === 'h') {
-    const rowPx = roiH / 3;
-    for (let k = 0; k < 3; k++) {
-      const yc = y0 + k * rowPx + rowPx / 2;
-      ovctx.beginPath(); ovctx.moveTo(W/2 - 26, yc); ovctx.lineTo(W/2 - 10, yc - 7);
-      ovctx.lineTo(W/2 - 10, yc + 7); ovctx.closePath(); ovctx.fill();
-      ovctx.beginPath(); ovctx.moveTo(W/2 + 26, yc); ovctx.lineTo(W/2 + 10, yc - 7);
-      ovctx.lineTo(W/2 + 10, yc + 7); ovctx.closePath(); ovctx.fill();
-    }
-  } else {
-    const colW = roiW / 3;
-    for (let k = 0; k < 3; k++) {
-      const xc = x0 + k * colW + colW / 2;
-      ovctx.beginPath(); ovctx.moveTo(xc, H/2 - 26); ovctx.lineTo(xc - 7, H/2 - 10);
-      ovctx.lineTo(xc + 7, H/2 - 10); ovctx.closePath(); ovctx.fill();
-      ovctx.beginPath(); ovctx.moveTo(xc, H/2 + 26); ovctx.lineTo(xc - 7, H/2 + 10);
-      ovctx.lineTo(xc + 7, H/2 + 10); ovctx.closePath(); ovctx.fill();
-    }
-  }
-
-  // ---------- DEBUG: točke branja ----------
+  // ---------- DEBUG ----------
   if (debugOn && debug) {
-    // 1) Krogci kjer se berejo biti (8 točk: 4 v bit0-3, 4 v bit4-7)
+    // 1) Mreža iz CLOCK prehodov (cyan črtkane)
+    if (debug.gridLines && debug.gridLines.length > 0) {
+      ovctx.strokeStyle = 'rgba(0,255,255,0.85)';
+      ovctx.lineWidth = 1;
+      ovctx.setLineDash([4,4]);
+      ovctx.beginPath();
+      for (const t of debug.gridLines) {
+        ovctx.moveTo(t, y0); ovctx.lineTo(t, y1);
+      }
+      ovctx.stroke(); ovctx.setLineDash([]);
+    }
+
+    // 2) Referenčna celica (rumena levi, oranžna desni)
+    if (debug.refLeft !== undefined && debug.refRight !== undefined) {
+      ovctx.fillStyle = 'yellow';
+      ovctx.fillRect(debug.refLeft-1, y0, 3, roiH);
+      ovctx.fillStyle = 'orange';
+      ovctx.fillRect(debug.refRight-1, y0, 3, roiH);
+    }
+
+    // 3) Zeleni krogci za branje bitov
     if (debug.bitPoints) {
-      ovctx.strokeStyle = 'lime';
       ovctx.lineWidth = Math.max(2, lineThick);
+      ovctx.strokeStyle = 'lime';
       for (const p of debug.bitPoints) {
         ovctx.beginPath();
-        ovctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+        ovctx.arc(p.x, p.y, 5, 0, Math.PI*2);
         ovctx.stroke();
       }
-    }
-
-    // 2) Prehodi v CLOCK vrstici
-    if (debug.transitions) {
-      ovctx.fillStyle = 'cyan';
-      for (const t of debug.transitions) {
-        ovctx.fillRect(t - 1, debug.yRow2 - 6, 2, 12);
+      ovctx.fillStyle = 'lime';
+      ovctx.font = 'bold 10px monospace';
+      for (const p of debug.bitPoints) {
+        ovctx.fillText('b'+p.bit, p.x+7, p.y-6);
       }
     }
 
-    // 3) Levi in desni rob referenčne celice (rumena/oranžna navpična črta)
-    if (debug.leftEdge !== undefined && debug.yRow2 !== undefined) {
-      if (debug.leftEdge !== null) {
-        ovctx.fillStyle = 'yellow';
-        ovctx.fillRect(debug.leftEdge - 1, y0, 3, roiH);
-      }
-      if (debug.rightEdge !== null) {
-        ovctx.fillStyle = 'orange';
-        ovctx.fillRect(debug.rightEdge - 1, y0, 3, roiH);
-      }
-    }
-
-    // 4) Sredina referenčne črte (kjer beremo δ)
+    // 4) Magenta sredina
     ovctx.strokeStyle = 'magenta';
     ovctx.lineWidth = Math.max(2, lineThick);
     ovctx.beginPath();
-    ovctx.arc(W/2, H/2, 10, 0, Math.PI * 2);
+    ovctx.arc(W/2, H/2, 12, 0, Math.PI*2);
     ovctx.stroke();
+  }
 
-    // 5) Koordinate ob točkah
-    ovctx.font = 'bold 10px monospace';
-    ovctx.fillStyle = 'lime';
-    if (debug.bitPoints) {
-      let i = 0;
-      for (const p of debug.bitPoints) {
-        ovctx.fillText('b' + i, p.x + 6, p.y - 4);
-        i++;
-      }
-    }
+  // Oznake vrstic
+  ovctx.fillStyle = 'rgba(80,160,255,0.95)';
+  ovctx.font = 'bold 11px monospace';
+  if (orientation === 'h') {
+    const rowPx = roiH/3;
+    ovctx.fillText('bit0-3', x0+6, y0+14);
+    ovctx.fillText('bit4-7', x0+6, y0+rowPx+14);
+    ovctx.fillText('CLOCK',  x0+6, y0+2*rowPx+14);
   }
 }
 
-// ---------- Branje piksla ----------
+// ---------- Bralnik piksla ----------
 function readPixel(x, y) {
   const xi = Math.round(x), yi = Math.round(y);
-  if (xi < 0 || yi < 0 || xi >= processC.width || yi >= processC.height) return 1;
+  if (xi<0 || yi<0 || xi>=processC.width || yi>=processC.height) return 1;
   const d = pctx.getImageData(xi, yi, 1, 1).data;
-  return ((d[0] + d[1] + d[2]) / 3) < 128 ? 1 : 0;
+  return ((d[0]+d[1]+d[2])/3) < 128 ? 1 : 0;
+}
+function readBrightness(x, y) {
+  const xi = Math.round(x), yi = Math.round(y);
+  if (xi<0 || yi<0 || xi>=processC.width || yi>=processC.height) return 255;
+  const d = pctx.getImageData(xi, yi, 1, 1).data;
+  return (d[0]+d[1]+d[2])/3;
 }
 
-function readBitSim(yc, xCenter) {
-  let s = 0, n = 0;
-  for (const dx of [-8,-4,4,8]) { s += readPixel(xCenter + dx, yc); n++; }
+// ---------- Simulator branje (nespremenjeno) ----------
+function readBitSim(yc, xC) {
+  let s=0,n=0;
+  for (const dx of [-8,-4,4,8]) { s += readPixel(xC+dx, yc); n++; }
   return s > n/2 ? 1 : 0;
 }
-
 function readWindowAt(Pphys, cStart) {
   const cx = processC.width/2; let bits = 0;
-  for (let i = 0; i < 4; i++) {
-    const xc = cx + ((cStart + i) * 5 + 2.5 - Pphys) * PX_PER_MM;
+  for (let i=0;i<4;i++) {
+    const xc = cx + ((cStart+i)*5 + 2.5 - Pphys) * PX_PER_MM;
     bits |= readBitSim(yC0, xc) << i;
-    bits |= readBitSim(yC1, xc) << (4 + i);
+    bits |= readBitSim(yC1, xc) << (4+i);
   }
   return { bits, c: LOOKUP[bits] };
 }
-
-function findCellEdges(xC, yc) {
+function findCellEdgesSim(xC, yc) {
   const col = readPixel(xC, yc);
-  let L = null, R = null;
-  for (let d = 1; d < 80; d++) if (readPixel(xC - d, yc) !== col) { L = xC - d + 0.5; break; }
-  for (let d = 1; d < 80; d++) if (readPixel(xC + d, yc) !== col) { R = xC + d - 0.5; break; }
+  let L=null, R=null;
+  for (let d=1;d<80;d++) if (readPixel(xC-d,yc)!==col){L=xC-d+0.5;break;}
+  for (let d=1;d<80;d++) if (readPixel(xC+d,yc)!==col){R=xC+d-0.5;break;}
   return { L, R };
 }
-
 function readDynamic(P) {
   const Pphys = P + CODE_OFFSET;
-  const cx = processC.width/2, CELL = 50;
+  const cx = processC.width/2;
   const N = Math.min(Math.floor((processC.width - 100)/50), 15);
   const halfN = Math.floor(N/2);
-  const cApprox = Math.floor(Pphys / 5);
+  const cApprox = Math.floor(Pphys/5);
   const wins = [];
-  for (let k = 0; k < N-3; k++) {
+  for (let k=0;k<N-3;k++) {
     const cs = cApprox - halfN + k;
     wins.push({ k, cs, ...readWindowAt(Pphys, cs) });
   }
-  let bestS = 0, bestL = 0, curS = 0;
-  for (let k = 0; k < wins.length; k++) {
+  let bestS=0,bestL=0,curS=0;
+  for (let k=0;k<wins.length;k++) {
     const prev = wins[k-1], w = wins[k];
-    const cons = k > 0 && prev.c >= 0 && w.c >= 0 && ((w.c - prev.c + 256) % 256 === 1);
-    if (!cons) { if (k - curS > bestL) { bestL = k - curS; bestS = curS; } curS = k; }
+    const cons = k>0 && prev.c>=0 && w.c>=0 && ((w.c-prev.c+256)%256===1);
+    if (!cons) { if (k-curS>bestL){bestL=k-curS;bestS=curS;} curS=k; }
   }
-  if (wins.length - curS > bestL) { bestL = wins.length - curS; bestS = curS; }
-  const targetK = halfN - 2;
-  let chosen = null, bd = Infinity;
-  if (bestL >= 3) for (let k = bestS; k < bestS + bestL; k++) {
-    if (wins[k].c < 0) continue;
-    const d = Math.abs(k - targetK);
-    if (d < bd) { bd = d; chosen = wins[k]; }
+  if (wins.length-curS>bestL) { bestL = wins.length-curS; bestS = curS; }
+  const targetK = halfN-2;
+  let chosen=null,bd=Infinity;
+  if (bestL>=3) for (let k=bestS;k<bestS+bestL;k++) {
+    if (wins[k].c<0) continue;
+    const d = Math.abs(k-targetK);
+    if (d<bd){bd=d;chosen=wins[k];}
   }
   if (!chosen) for (const w of wins) {
-    if (w.c < 0) continue;
-    const d = Math.abs(w.k - targetK);
-    if (d < bd) { bd = d; chosen = w; }
+    if (w.c<0) continue;
+    const d = Math.abs(w.k-targetK);
+    if (d<bd){bd=d;chosen=w;}
   }
-  if (!chosen) chosen = { k: targetK, cs: cApprox, c: cApprox, bits: 0 };
+  if (!chosen) chosen = { k:targetK, cs:cApprox, c:cApprox, bits:0 };
   const cStart = chosen.c;
-  const offset = Math.max(0, Math.min(7, cApprox - cStart));
+  const offset = Math.max(0, Math.min(7, cApprox-cStart));
   const cRef = cStart + offset;
   const xc = cx + (cRef*5 + 2.5 - Pphys) * PX_PER_MM;
-  const e = findCellEdges(xc, yC2);
-  let delta = 0, w = null, cal = 1;
-  if (e.L !== null && e.R !== null) {
-    w = e.R - e.L; cal = w / IDEAL_CELL_PX;
-    delta = Math.max(0, Math.min(5, (cx - e.L) / w * 5));
+  const e = findCellEdgesSim(xc, yC2);
+  let delta=0, w=null, cal=1;
+  if (e.L!==null && e.R!==null) {
+    w = e.R-e.L; cal = w/IDEAL_CELL_PX;
+    delta = Math.max(0, Math.min(5, (cx-e.L)/w*5));
   }
   const mm_phys = cRef*5 + delta, mm = mm_phys - CODE_OFFSET;
-
-  // Debug točke (samo v simulatorju)
   const bitPoints = [];
-  for (let i = 0; i < 4; i++) {
-    const xc2 = cx + ((cStart + i) * 5 + 2.5 - Pphys) * PX_PER_MM;
-    bitPoints.push({ x: xc2, y: yC0 });
-    bitPoints.push({ x: xc2, y: yC1 });
+  for (let i=0;i<4;i++) {
+    const xc2 = cx + ((cStart+i)*5+2.5 - Pphys)*PX_PER_MM;
+    bitPoints.push({ x:xc2, y:yC0, bit:i });
+    bitPoints.push({ x:xc2, y:yC1, bit:i+4 });
   }
-
-  return { c: cRef, cStart, cRef, offset, bits: chosen.bits,
-    cApprox, chosenK: chosen.k, bestLen: bestL, bestStart: bestS,
-    numWindows: wins.length, validWindows: wins.filter(x=>x.c>=0).length,
-    allC: wins.map(x=>x.c), delta, widthPx: w, calFactor: cal, mm, mm_phys,
-    bitPoints, leftEdge: e.L, rightEdge: e.R, yRow2: yC2 };
+  return { c:cRef, cStart, cRef, offset, bits:chosen.bits, cApprox,
+    chosenK:chosen.k, bestLen:bestL, bestStart:bestS,
+    numWindows:wins.length, validWindows:wins.filter(x=>x.c>=0).length,
+    allC:wins.map(x=>x.c), delta, widthPx:w, calFactor:cal,
+    mm, mm_phys, bitPoints, refLeft:e.L, refRight:e.R,
+    gridLines:[], yRow2:yC2 };
 }
 
-// ---------- Snemanje videa v process ----------
+// ---------- Kamera – branje iz CLOCK mreže ----------
+function readFromCamera() {
+  const W = processC.width, H = processC.height, cx = Math.floor(W/2);
+  const roiPx = Math.max(20, H * roiSize);
+  const y0 = H * roiOffset - roiPx/2;
+  const rowPx = roiPx/3;
+  const yRow0 = Math.round(y0 + rowPx*0.5);
+  const yRow1 = Math.round(y0 + rowPx*1.5);
+  const yRow2 = Math.round(y0 + rowPx*2.5);
+
+  // ---- 1) Skeniraj celotno CLOCK vrstico in zabeleži prehode ----
+  // Adaptivni threshold iz povprečja vrstice
+  let sum = 0, n = 0;
+  for (let x = 2; x < W-2; x++) { sum += readBrightness(x, yRow2); n++; }
+  const thresh = sum / n;
+
+  const transitions = [];
+  let prev = readBrightness(0, yRow2) < thresh ? 1 : 0;
+  for (let x = 1; x < W; x++) {
+    const v = readBrightness(x, yRow2) < thresh ? 1 : 0;
+    if (v !== prev) transitions.push(x);
+    prev = v;
+  }
+  if (transitions.length < 6) {
+    return { ok:false, reason:'Premalo prehodov ('+transitions.length+')' };
+  }
+
+  // ---- 2) Izračun cikla (mediana gapov) ----
+  const rawGaps = [];
+  for (let i = 1; i < transitions.length; i++) rawGaps.push(transitions[i]-transitions[i-1]);
+  const sortedGaps = [...rawGaps].sort((a,b)=>a-b);
+  const medGap = sortedGaps[Math.floor(sortedGaps.length/2)];
+  if (medGap < 4) return { ok:false, reason:'Premajhen cikel ('+medGap+')' };
+
+  // ---- 3) Filtriraj prehode – ohrani le konsistentne ----
+  const good = [transitions[0]];
+  for (let i = 1; i < transitions.length; i++) {
+    const g = transitions[i] - good[good.length-1];
+    if (g >= medGap*0.5 && g <= medGap*1.6) good.push(transitions[i]);
+    else if (g > medGap*1.6) good.push(transitions[i]);   // preskoči manjkajoče, a ohrani naslednjega
+  }
+  if (good.length < 5) return { ok:false, reason:'Premalo celic ('+good.length+')' };
+
+  const numCells = good.length - 1;
+
+  // ---- 4) Preberi vsako celico z adaptivnim thresholdom v vsaki vrstici ----
+  // Povprečna svetlost vrstic 0 in 1
+  let s0 = 0, s1 = 0, m = 0;
+  for (let i = 0; i < numCells; i++) {
+    const xc = Math.round((good[i] + good[i+1]) / 2);
+    for (let dx = -3; dx <= 3; dx++) {
+      s0 += readBrightness(xc+dx, yRow0);
+      s1 += readBrightness(xc+dx, yRow1);
+      m++;
+    }
+  }
+  const th0 = s0/m, th1 = s1/m;
+
+  const cellCenters = [], upper = [], lower = [];
+  for (let i = 0; i < numCells; i++) {
+    const xc = Math.round((good[i] + good[i+1]) / 2);
+    cellCenters.push(xc);
+    // Glasovanje 5 točk
+    let v0 = 0, v1 = 0, nn = 0;
+    for (const dx of [-8,-4,0,4,8]) {
+      if (xc+dx < 1 || xc+dx > W-1) continue;
+      v0 += readBrightness(xc+dx, yRow0) < th0 ? 1 : 0;
+      v1 += readBrightness(xc+dx, yRow1) < th1 ? 1 : 0;
+      nn++;
+    }
+    upper.push(v0 > nn/2 ? 1 : 0);
+    lower.push(v1 > nn/2 ? 1 : 0);
+  }
+
+  // ---- 5) Zgradi vsa 8-bitna okna ----
+  const cands = [];
+  for (let i = 0; i <= numCells-4; i++) {
+    let bits = 0;
+    for (let k = 0; k < 4; k++) {
+      bits |= upper[i+k] << k;
+      bits |= lower[i+k] << (4+k);
+    }
+    cands.push({ i, bits, c: LOOKUP[bits] });
+  }
+  if (cands.length === 0) return { ok:false, reason:'Ni kandidatov' };
+
+  // ---- 6) Najdaljši niz zaporednih celic ----
+  let bestS=0, bestL=0, curS=0;
+  for (let k = 0; k < cands.length; k++) {
+    const prev = cands[k-1], w = cands[k];
+    const cons = k>0 && prev.c>=0 && w.c>=0 && ((w.c-prev.c+256)%256===1);
+    if (!cons) { if (k-curS>bestL){bestL=k-curS;bestS=curS;} curS=k; }
+  }
+  if (cands.length-curS>bestL) { bestL = cands.length-curS; bestS = curS; }
+  if (bestL < 1) return { ok:false, reason:'Ni veljavnega niza' };
+
+  // ---- 7) Katera celica vsebuje cx? ----
+  let cellAtCx = -1;
+  for (let i = 0; i < numCells; i++) {
+    if (good[i] <= cx && cx < good[i+1]) { cellAtCx = i; break; }
+  }
+  if (cellAtCx < 0) cellAtCx = Math.floor(numCells/2);
+
+  // ---- 8) Izberi najboljši kandidat ----
+  let chosen = null, chosenCRef = null;
+  for (let k = bestS; k < bestS+bestL; k++) {
+    const cand = cands[k];
+    if (cand.c < 0) continue;
+    if (cellAtCx >= cand.i && cellAtCx <= cand.i+3) {
+      chosen = cand;
+      chosenCRef = cand.c + (cellAtCx - cand.i);
+      break;
+    }
+  }
+  if (!chosen) {
+    let bd = Infinity;
+    for (let k = bestS; k < bestS+bestL; k++) {
+      const cand = cands[k];
+      if (cand.c < 0) continue;
+      const d = Math.abs(cand.i - cellAtCx);
+      if (d < bd) { bd = d; chosen = cand; chosenCRef = cand.c + (cellAtCx - cand.i); }
+    }
+  }
+  if (!chosen) return { ok:false, reason:'Ni ustreznega okna' };
+
+  const cRef = chosenCRef;
+
+  // ---- 9) δ iz referenčne celice ----
+  const refLeft  = good[cellAtCx];
+  const refRight = good[cellAtCx+1];
+  const refW = refRight - refLeft;
+  let delta = (cx - refLeft) / refW * 5;
+  delta = Math.max(0, Math.min(5, delta));
+
+  const mm_phys = cRef * 5 + delta;
+  const mm = Math.max(0, Math.min(1000, mm_phys - CODE_OFFSET));
+
+  // ---- 10) Debug točke ----
+  const bitPoints = [];
+  for (let k = 0; k < 4; k++) {
+    const gi = chosen.i + k;
+    if (gi < 0 || gi >= numCells) continue;
+    bitPoints.push({ x: cellCenters[gi], y: yRow0, bit: k });
+    bitPoints.push({ x: cellCenters[gi], y: yRow1, bit: k+4 });
+  }
+
+  return {
+    ok:true, mm, mm_phys, c:cRef, delta,
+    cellPx: medGap, cellW: refW,
+    bits: chosen.bits,
+    bitPoints,
+    gridLines: good,
+    refLeft, refRight,
+    yRow0, yRow1, yRow2, roiY0: y0, rowPx,
+    cellAtCx, chosenI: chosen.i, bestLen: bestL, bestStart: bestS,
+    numCells, transitions: good,
+    cands
+  };
+}
+
+// ---------- Snemanje videa ----------
 function snapshotToProcess() {
   if (video.readyState < 2) return;
   const W = processC.width, H = processC.height;
@@ -462,89 +544,13 @@ function snapshotToProcess() {
     pctx.drawImage(video, 0, 0, W, H);
   } else {
     pctx.translate(W/2, H/2);
-    pctx.rotate(Math.PI / 2);
+    pctx.rotate(Math.PI/2);
     const ratio = video.videoWidth / video.videoHeight;
-    let dw = H, dh = H / ratio;
-    if (dh < W) { dh = W; dw = W * ratio; }
+    let dw = H, dh = H/ratio;
+    if (dh < W) { dh = W; dw = W*ratio; }
     pctx.drawImage(video, -dw/2, -dh/2, dw, dh);
   }
   pctx.restore();
-}
-
-// ---------- Branje iz kamere ----------
-function readFromCamera() {
-  const W = processC.width, H = processC.height, cx = Math.floor(W/2);
-
-  const roiPx = Math.max(20, (orientation === 'h' ? H : W) * roiSize);
-  let y0, rowPx;
-  if (orientation === 'h') {
-    y0 = H * roiOffset - roiPx / 2;
-    rowPx = roiPx / 3;
-  } else {
-    y0 = H * 0.5 - roiPx / 2;
-    rowPx = roiPx / 3;
-  }
-
-  const yRow0 = Math.round(y0 + rowPx * 0.5);
-  const yRow1 = Math.round(y0 + rowPx * 1.5);
-  const yRow2 = Math.round(y0 + rowPx * 2.5);
-
-  // Prehodi v CLOCK vrstici
-  const trans = [];
-  let prev = readPixel(4, yRow2);
-  for (let x = 5; x < W - 4; x++) {
-    const v = readPixel(x, yRow2);
-    if (v !== prev) trans.push(x);
-    prev = v;
-  }
-  if (trans.length < 4) return { ok:false, reason:'Premalo prehodov ('+trans.length+')' };
-
-  let sumG = 0, nG = 0;
-  for (let i = 1; i < trans.length; i++) {
-    const g = trans[i] - trans[i-1];
-    if (g > 3 && g < 300) { sumG += g; nG++; }
-  }
-  if (nG < 2) return { ok:false, reason:'Premalo veljavnih celic' };
-  const cellPx = sumG / nG;
-
-  let L = null, R = null;
-  for (const t of trans) { if (t <= cx) L = t; if (t > cx && R === null) R = t; }
-  if (L === null) L = cx - cellPx / 2;
-  if (R === null) R = L + cellPx;
-  const cellW = R - L;
-
-  // Preberi 8 bitov + debug točke
-  let bits = 0;
-  const bitPoints = [];
-  for (let i = 0; i < 4; i++) {
-    const xc = Math.round(L + (i + 0.5) * cellPx);
-    bits |= readPixel(xc, yRow0) << i;
-    bits |= readPixel(xc, yRow1) << (4 + i);
-    bitPoints.push({ x: xc, y: yRow0 });
-    bitPoints.push({ x: xc, y: yRow1 });
-  }
-  let c = LOOKUP[bits];
-  if (c < 0) {
-    for (const shift of [-1, 1, -2, 2]) {
-      let b2 = 0;
-      for (let i = 0; i < 4; i++) {
-        const xc = Math.round(L + (i + 0.5 + shift) * cellPx);
-        b2 |= readPixel(xc, yRow0) << i;
-        b2 |= readPixel(xc, yRow1) << (4 + i);
-      }
-      const c2 = LOOKUP[b2];
-      if (c2 >= 0) { bits = b2; c = c2; break; }
-    }
-  }
-  if (c < 0) c = 0;
-
-  let delta = (cx - L) / cellW * 5;
-  delta = Math.max(0, Math.min(5, delta));
-  const mm_phys = c * 5 + delta;
-  const mm = Math.max(0, Math.min(1000, mm_phys - CODE_OFFSET));
-
-  return { ok:true, mm, mm_phys, c, delta, cellPx, cellW, bits, trans: trans.length,
-    bitPoints, leftEdge: L, rightEdge: R, yRow2, transitions: trans, roiY0: y0, rowPx };
 }
 
 // ---------- Zanka ----------
@@ -554,15 +560,12 @@ function update() {
   if (mode === 'sim') {
     const cIn = parseFloat($('coarse').value), fIn = parseFloat($('fine').value);
     const P = Math.max(P_MIN_MM, Math.min(P_MAX_MM, cIn + fIn));
-    $('coarseVal').textContent = cIn.toFixed(0) + ' mm';
+    $('coarseVal').textContent = cIn.toFixed(0)+' mm';
     $('fineVal').textContent = fIn.toFixed(2);
-    $('totalVal').textContent = P.toFixed(2) + ' mm';
-
+    $('totalVal').textContent = P.toFixed(2)+' mm';
     drawSimulator(P);
     ovctx.drawImage(processC, 0, 0, overlay.width, overlay.height);
-
     const r = readDynamic(P);
-    lastDebug = r;
     drawGuidesOnOverlay(r);
 
     outEl.textContent = r.mm.toFixed(2) + ' mm';
@@ -570,39 +573,26 @@ function update() {
     $('deltaVal').textContent = r.delta.toFixed(2) + ' mm';
     $('boundaryWarn').textContent = (r.delta < 0.2 || r.delta > 4.8) ? '⚠ rob' : '';
 
-    let dbg = '=== DEBUG ===\n';
-    dbg += 'P        = ' + P.toFixed(2) + '  Pphys = ' + (P+CODE_OFFSET).toFixed(2) + '\n';
-    dbg += 'bits     = ' + bitsStr(r.bits) + '  cStart = ' + r.cStart + '\n';
-    dbg += 'Okna     = ' + r.numWindows + '  veljavnih = ' + r.validWindows + '\n';
-    dbg += 'Najd. niz= ' + r.bestLen + '  od k = ' + r.bestStart + '\n';
-    dbg += 'cApprox  = ' + r.cApprox + '  offset = ' + r.offset + '  cRef = ' + r.cRef + '\n';
-    dbg += 'kandidati= [' + r.allC.join(', ') + ']\n';
-    dbg += 'δ        = ' + r.delta.toFixed(2) + ' mm\n';
-    dbg += 'w(cRef)  = ' + (r.widthPx !== null ? r.widthPx.toFixed(1) + ' px' : '?') + '\n';
-    dbg += 'kal.fak. = ' + r.calFactor.toFixed(4) + '\n';
-    dbg += 'mm_phys  = ' + r.mm_phys.toFixed(2) + '  mm = ' + r.mm.toFixed(2) + '\n';
-    dbg += 'leftEdge = ' + (r.leftEdge !== null ? r.leftEdge.toFixed(1) : '?') +
-           '  rightEdge = ' + (r.rightEdge !== null ? r.rightEdge.toFixed(1) : '?') + '\n';
-    dbg += 'yC0=' + yC0 + '  yC1=' + yC1 + '  yC2=' + yC2 + '\n';
-    dbg += 'px/mm    = ' + PX_PER_MM + '  cellPx = ' + IDEAL_CELL_PX + '\n';
-    dbg += 'napaka   = ' + (r.mm - P).toFixed(2) + ' mm\n';
-    $('testOut').textContent = dbg;
-
+    $('testOut').textContent =
+      'P=' + P.toFixed(2) + '  Pphys=' + (P+CODE_OFFSET).toFixed(2) + '\n' +
+      'bits=' + bitsStr(r.bits) + '  cStart=' + r.cStart + '\n' +
+      'Okna=' + r.numWindows + '  veljavnih=' + r.validWindows + '\n' +
+      'Najd.niz=' + r.bestLen + '  od k=' + r.bestStart + '\n' +
+      'cApprox=' + r.cApprox + '  offset=' + r.offset + '  cRef=' + r.cRef + '\n' +
+      'kandidati=[' + r.allC.join(',') + ']\n' +
+      'δ=' + r.delta.toFixed(2) + '  mm_phys=' + r.mm_phys.toFixed(2) + '\n' +
+      'mm=' + r.mm.toFixed(2) + '  napaka=' + (r.mm-P).toFixed(2);
   } else if (video.readyState >= 2) {
     snapshotToProcess();
     ovctx.drawImage(processC, 0, 0, overlay.width, overlay.height);
 
     const r = readFromCamera();
     if (r.ok) {
-      // Ker je overlay enake velikosti kot process, koordinate 1:1
-      lastDebug = r;
-      // Debug črte narišemo z istimi koordinatami
       drawGuidesOnOverlay({
-        bitPoints: r.bitPoints,
-        transitions: r.transitions,
-        leftEdge: r.leftEdge,
-        rightEdge: r.rightEdge,
-        yRow2: r.yRow2
+        gridLines: r.gridLines,
+        refLeft: r.refLeft,
+        refRight: r.refRight,
+        bitPoints: r.bitPoints
       });
 
       outEl.textContent = r.mm.toFixed(2) + ' mm';
@@ -610,17 +600,18 @@ function update() {
       $('boundaryWarn').textContent = (r.delta < 0.2 || r.delta > 4.8) ? '⚠ rob' : '';
       $('napakaVal').textContent = '–';
 
-      let dbg = '=== DEBUG (kamera) ===\n';
-      dbg += 'orientacija = ' + orientation + '\n';
-      dbg += 'ROI         = ' + (roiSize*100).toFixed(0) + ' %  offset = ' + (roiOffset*100).toFixed(0) + ' %\n';
-      dbg += 'roiY0=' + r.roiY0.toFixed(0) + '  rowPx=' + r.rowPx.toFixed(0) + '\n';
-      dbg += 'yRow2=' + r.yRow2 + '  prehodi=' + r.trans + '\n';
-      dbg += 'c=' + r.c + '  bits=' + bitsStr(r.bits) + '\n';
-      dbg += 'cellPx=' + r.cellPx.toFixed(1) + '  cellW=' + r.cellW.toFixed(1) + '\n';
-      dbg += 'L=' + r.leftEdge.toFixed(1) + '  R=' + r.rightEdge.toFixed(1) + '\n';
-      dbg += 'δ=' + r.delta.toFixed(2) + ' mm\n';
-      dbg += 'mm_phys=' + r.mm_phys.toFixed(2) + '  mm=' + r.mm.toFixed(2) + '\n';
-      $('testOut').textContent = dbg;
+      $('testOut').textContent =
+        '=== CLOCK grid reading ===\n' +
+        'orientacija=' + orientation + '  ROI=' + (roiSize*100).toFixed(0) + '%  pomik=' + (roiOffset*100).toFixed(0) + '%\n' +
+        'prehodi=' + r.transitions.length + '  cikel=' + r.cellPx.toFixed(1) + ' px (mediana)\n' +
+        'mreža=' + r.numCells + ' celic\n' +
+        'najd.niz=' + r.bestLen + '  od i=' + r.bestStart + '\n' +
+        'izbrano okno i=' + r.chosenI + '  c=' + r.cands[r.chosenI].c + '\n' +
+        'cellAtCx=' + r.cellAtCx + '  cRef=' + r.c + '\n' +
+        'bits=' + bitsStr(r.bits) + '\n' +
+        'refL=' + r.refLeft.toFixed(1) + '  refR=' + r.refRight.toFixed(1) + '  refW=' + r.cellW.toFixed(1) + ' px\n' +
+        'δ=' + r.delta.toFixed(2) + ' mm\n' +
+        'mm_phys=' + r.mm_phys.toFixed(2) + '  mm=' + r.mm.toFixed(2);
     } else {
       drawGuidesOnOverlay({});
       outEl.textContent = '–';
@@ -633,7 +624,7 @@ function update() {
   requestAnimationFrame(update);
 }
 
-// ---------- Ostalo ----------
+// ---------- Test ----------
 function testAdjacent() {
   if (mode !== 'sim') { mode='sim'; stopCamera(); $('toggle').textContent='Na kamero'; statusEl.textContent='Simulator'; }
   const lines = ['P       preb   cRef cSt  δ     niz  okn     nap    OK',
@@ -646,107 +637,114 @@ function testAdjacent() {
     const ok = Math.abs(err) < 1;
     if (!ok) errs++;
     lines.push(
-      String(mm.toFixed(2)).padStart(6) + '  ' + String(r.mm.toFixed(2)).padStart(5) + '  ' +
-      String(r.cRef).padStart(3) + '  ' + String(r.cStart).padStart(3) + '  ' +
-      String(r.delta.toFixed(2)).padStart(4) + '  ' + String(r.bestLen).padStart(3) + '  ' +
-      String(r.validWindows + '/' + r.numWindows).padStart(6) + '  ' +
-      String(err.toFixed(2)).padStart(5) + '  ' + (ok ? '✓' : '✗'));
+      String(mm.toFixed(2)).padStart(6)+'  '+
+      String(r.mm.toFixed(2)).padStart(5)+'  '+
+      String(r.cRef).padStart(3)+'  '+
+      String(r.cStart).padStart(3)+'  '+
+      String(r.delta.toFixed(2)).padStart(4)+'  '+
+      String(r.bestLen).padStart(3)+'  '+
+      String(r.validWindows+'/'+r.numWindows).padStart(6)+'  '+
+      String(err.toFixed(2)).padStart(5)+'  '+(ok?'✓':'✗'));
   }
-  lines.push(''); lines.push('Napak: ' + errs); lines.push(errs === 0 ? 'VSE OK ✓' : 'NAPAKE!');
+  lines.push(''); lines.push('Napak: '+errs); lines.push(errs===0?'VSE OK ✓':'NAPAKE!');
   $('testOut').textContent = lines.join('\n');
 }
 
+// ---------- A4 izvoz ----------
 function exportA4() {
   const DPI = 300, PPMM = DPI/25.4;
   const W_PX = Math.round(297*PPMM), H_PX = Math.round(210*PPMM);
   const cvs = document.createElement('canvas');
   cvs.width = W_PX; cvs.height = H_PX;
   const ctx = cvs.getContext('2d');
-  ctx.fillStyle = 'white'; ctx.fillRect(0, 0, W_PX, H_PX);
+  ctx.fillStyle = 'white'; ctx.fillRect(0,0,W_PX,H_PX);
   const M = 10*PPMM, CELL_PX = 5*PPMM;
-  const N = 53, stripStarts = [70, 335, 600, 865], top = 14*PPMM;
+  const N = 53, stripStarts = [70,335,600,865], top = 14*PPMM;
 
   ctx.fillStyle = '#222'; ctx.font = `bold ${4*PPMM}px sans-serif`;
   ctx.fillText('Premerka – De Bruijn + CLOCK · prikaz 0–1000 mm', M, 6*PPMM);
 
   stripStarts.forEach((sMM, idx) => {
-    const y0 = top + idx * (26+6) * PPMM;
+    const y0 = top + idx*(26+6)*PPMM;
     if (y0 + 26*PPMM > H_PX - M) return;
-    const c0 = sMM / 5;
+    const c0 = sMM/5;
     ctx.fillStyle = '#000'; ctx.font = `bold ${3.5*PPMM}px monospace`;
     ctx.fillText(`Trak ${idx+1}:  ${sMM-100} … ${sMM-100+N*5} mm  (c = ${c0} … ${c0+N})`,
-                 M, y0 + 4*PPMM);
+                 M, y0+4*PPMM);
     const yc = y0 + 6*PPMM;
     for (let i = 0; i < N; i++) {
-      const col = c0 + i, x = M + i*CELL_PX;
-      ctx.fillStyle = DB[col & 0xFF] ? 'black' : 'white'; ctx.fillRect(x, yc, CELL_PX, CELL_PX);
-      ctx.fillStyle = DB[(col+4) & 0xFF] ? 'black' : 'white'; ctx.fillRect(x, yc+CELL_PX, CELL_PX, CELL_PX);
-      ctx.fillStyle = (col & 1) ? 'white' : 'black'; ctx.fillRect(x, yc+2*CELL_PX, CELL_PX, CELL_PX);
+      const col = c0+i, x = M + i*CELL_PX;
+      ctx.fillStyle = DB[col & 0xFF] ? 'black' : 'white';
+      ctx.fillRect(x, yc, CELL_PX, CELL_PX);
+      ctx.fillStyle = DB[(col+4) & 0xFF] ? 'black' : 'white';
+      ctx.fillRect(x, yc+CELL_PX, CELL_PX, CELL_PX);
+      ctx.fillStyle = (col & 1) ? 'white' : 'black';
+      ctx.fillRect(x, yc+2*CELL_PX, CELL_PX, CELL_PX);
     }
     ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
-    ctx.strokeRect(M + 0.5, yc + 0.5, N*CELL_PX, 3*CELL_PX);
+    ctx.strokeRect(M+0.5, yc+0.5, N*CELL_PX, 3*CELL_PX);
   });
 
   cvs.toBlob(b => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(b);
-    a.download = 'premerka-A4-' + new Date().toISOString().slice(0,10) + '.jpg';
+    a.download = 'premerka-A4-'+new Date().toISOString().slice(0,10)+'.jpg';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     statusEl.textContent = 'Izvoženo';
   }, 'image/jpeg', 0.95);
 }
 
+// ---------- Kamere ----------
 async function listCameras() {
   try {
-    const tmp = await navigator.mediaDevices.getUserMedia({ video: true });
-    tmp.getTracks().forEach(t => t.stop());
+    const tmp = await navigator.mediaDevices.getUserMedia({ video:true });
+    tmp.getTracks().forEach(t=>t.stop());
     const devs = await navigator.mediaDevices.enumerateDevices();
     const cams = devs.filter(d => d.kind === 'videoinput');
     const sel = $('camSelect'); sel.innerHTML = '';
-    cams.forEach((c, i) => {
+    cams.forEach((c,i) => {
       const o = document.createElement('option');
       o.value = c.deviceId;
-      o.textContent = c.label || ('Kamera ' + (i+1));
+      o.textContent = c.label || ('Kamera '+(i+1));
       sel.appendChild(o);
     });
     if (cams.length > 0) {
-      let pref = cams.find(c => /back|rear|zadnja/i.test(c.label)) || cams[cams.length-1];
+      const pref = cams.find(c => /back|rear|zadnja/i.test(c.label)) || cams[cams.length-1];
       currentDeviceId = pref.deviceId;
       sel.value = currentDeviceId;
     }
     sel.onchange = () => { currentDeviceId = sel.value; restartCamera(); };
-  } catch (e) { statusEl.textContent = 'Napaka seznama kamer: ' + e.message; }
+  } catch (e) { statusEl.textContent = 'Napaka seznama: '+e.message; }
 }
-
 async function startCamera() {
   try {
     const cons = { video: currentDeviceId
-      ? { deviceId: { exact: currentDeviceId }, width:{ideal:1920}, height:{ideal:1080} }
-      : { facingMode: { ideal: 'environment' }, width:{ideal:1920}, height:{ideal:1080} }
+      ? { deviceId:{exact:currentDeviceId}, width:{ideal:1920}, height:{ideal:1080} }
+      : { facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080} }
     };
     stream = await navigator.mediaDevices.getUserMedia(cons);
     video.srcObject = stream; await video.play();
     statusEl.textContent = 'Kamera';
-  } catch (e) { statusEl.textContent = 'Napaka: ' + e.message; }
+  } catch (e) { statusEl.textContent = 'Napaka: '+e.message; }
 }
-function stopCamera() { if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; } }
+function stopCamera() { if (stream) { stream.getTracks().forEach(t=>t.stop()); stream=null; } }
 async function restartCamera() { stopCamera(); await startCamera(); }
 
 function toggleMode() {
   if (mode === 'camera') {
-    mode = 'sim'; stopCamera(); $('toggle').textContent = 'Na kamero';
-    statusEl.textContent = 'Simulator';
+    mode='sim'; stopCamera(); $('toggle').textContent='Na kamero';
+    statusEl.textContent='Simulator';
   } else {
-    mode = 'camera'; $('toggle').textContent = 'Na simulator'; startCamera();
+    mode='camera'; $('toggle').textContent='Na simulator'; startCamera();
   }
 }
 function toggleOrientation() {
   orientation = orientation === 'h' ? 'v' : 'h';
   $('orientBtn').textContent = orientation === 'h' ? 'Vodoravno' : 'Navpično';
-  ovctx.clearRect(0, 0, overlay.width, overlay.height);
+  ovctx.clearRect(0,0,overlay.width,overlay.height);
 }
 
-// Init
+// ---------- Init ----------
 overlay.width = 800; overlay.height = 600;
 processC.width = 800; processC.height = 600;
 video.addEventListener('loadedmetadata', () => {
@@ -759,9 +757,9 @@ $('toggle').onclick = toggleMode;
 $('testBtn').onclick = testAdjacent;
 $('exportBtn').onclick = exportA4;
 $('orientBtn').onclick = toggleOrientation;
-$('roiSize').oninput = e => { roiSize = e.target.value / 100; $('roiSizeVal').textContent = e.target.value + ' %'; };
-$('roiOffset').oninput = e => { roiOffset = e.target.value / 100; $('roiOffsetVal').textContent = e.target.value + ' %'; };
-$('lineThick').oninput = e => { lineThick = parseInt(e.target.value); $('lineThickVal').textContent = lineThick + ' px'; };
+$('roiSize').oninput = e => { roiSize = e.target.value/100; $('roiSizeVal').textContent = e.target.value+' %'; };
+$('roiOffset').oninput = e => { roiOffset = e.target.value/100; $('roiOffsetVal').textContent = e.target.value+' %'; };
+$('lineThick').oninput = e => { lineThick = parseInt(e.target.value); $('lineThickVal').textContent = lineThick+' px'; };
 $('debugChk').onchange = e => { debugOn = e.target.checked; };
 
 listCameras().then(() => startCamera().then(() => requestAnimationFrame(update)));
