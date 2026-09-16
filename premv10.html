@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#111">
-<title>Premerka v20</title>
+<title>Premerka v21</title>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin:0; padding:0; font-family:-apple-system,Roboto,sans-serif;
@@ -20,7 +20,6 @@
   .header .ver { color:#4f4; font-weight:bold; font-size:14px; white-space:nowrap; }
   .header .time { color:#aaa; text-align:right; flex:1; }
 
-  /* CROP OKNO KAMERE – polna širina, višina dinamična */
   .camera-wrap {
     position:relative; width:100vw;
     aspect-ratio: 16 / 9;
@@ -32,7 +31,7 @@
     position:absolute; top:0; left:0;
     width:100%; height:100%;
     object-fit: cover;
-    object-position: center 50%;  /* spreminja se z sliderjem */
+    object-position: center 50%;
     z-index: 1;
     background: #000;
   }
@@ -66,7 +65,7 @@
   #rezultat { font-size:clamp(28px,8vw,44px); font-weight:bold; color:#4f4; }
   #totalVal, .big { font-size:clamp(20px,5.5vw,32px); font-weight:bold; color:#4f4; }
   .val { font-size:clamp(14px,3.5vw,20px); font-weight:bold; color:#4f4; }
-  .label { font-size:clamp(12px,3.2vw,16px); color:#bbb; font-weight:bold; min-width:90px; flex-shrink:0; }
+  .label { font-size:clamp(12px,3.2vw,16px); color:#bbb; font-weight:bold; min-width:100px; flex-shrink:0; }
   #status { font-size:clamp(10px,2.8vw,13px); color:#888; margin-left:auto; }
   .warn { color:#fa0; font-weight:bold; font-size:clamp(12px,3.2vw,16px); }
   #testOut { font-family:ui-monospace,monospace; font-size:10px;
@@ -79,7 +78,7 @@
 <body>
 
 <div class="header">
-  <span class="ver">v20</span>
+  <span class="ver">v21</span>
   <span class="time" id="clock">–</span>
 </div>
 
@@ -103,9 +102,9 @@
     <button id="exportBtn" class="export">Izvozi A4</button>
   </div>
 
-  <!-- CROP sliders -->
+  <!-- CROP -->
   <div class="row">
-    <span class="label">Višina iskanja</span>
+    <span class="label">Višina crop</span>
     <input type="range" id="cropHeight" min="10" max="60" step="1" value="25">
     <span id="cropHeightVal" class="val">25 %</span>
   </div>
@@ -113,6 +112,13 @@
     <span class="label">Območje</span>
     <input type="range" id="cropPos" min="0" max="100" step="1" value="50">
     <span id="cropPosVal" class="val">50 %</span>
+  </div>
+
+  <!-- RAZMAK MED PASOVI -->
+  <div class="row">
+    <span class="label">Razmak pasov</span>
+    <input type="range" id="rowSpacing" min="5" max="200" step="1" value="50">
+    <span id="rowSpacingVal" class="val">50 px</span>
   </div>
 
   <div class="row">
@@ -172,7 +178,7 @@
 <input type="file" id="fileInput" accept="image/*" style="display:none">
 
 <script>
-const VERSION = 'v20';
+const VERSION = 'v21';
 const BUILD_TIME = new Date().toLocaleString('sl-SI', {
   year:'numeric', month:'2-digit', day:'2-digit',
   hour:'2-digit', minute:'2-digit', second:'2-digit'
@@ -218,8 +224,9 @@ const fileInput = $('fileInput');
 let mode = 'camera';
 let orientation = 'h';
 let stream = null, currentDeviceId = null;
-let cropHeightPct = 25;   // % višine videa
-let cropPosPct = 50;      // 0-100 – Y pozicija za object-position
+let cropHeightPct = 25;
+let cropPosPct = 50;
+let rowSpacingPx = 50;
 let manualTh = 128, thOffset = 0;
 let useOtsu = true;
 let lineThick = 3;
@@ -294,13 +301,10 @@ function scanRowFromCenter(y, thresh, W, cx) {
   return { trans: all, medGap: gaps[Math.floor(gaps.length/2)], count: all.length };
 }
 
-// Simulator – zdaj riše v višino, ki ustreza cropu
 function drawSimulator(P) {
   const W = processC.width, H = processC.height, cx = W/2;
   const Pphys = P + CODE_OFFSET;
   pctx.fillStyle = 'white'; pctx.fillRect(0, 0, W, H);
-
-  // Simulator nariše 3 vrstice, ki zapolnijo celo višino canvasa
   const rowH = H / 3;
   const pxPerMm = rowH / 5;
   const yTop = 0;
@@ -321,7 +325,7 @@ function drawSimulator(P) {
   }
 }
 
-// BRALNIK – na crop canvasu
+// ==================== BRALNIK s tremi fiksnimi pasovi ====================
 function readFrame() {
   const W = processC.width, H = processC.height;
   const cx = Math.floor(W/2);
@@ -329,114 +333,39 @@ function readFrame() {
 
   const globalTh = otsuRegion(0, 0, W, H);
 
-  // 1) Srednja vrstica → cellPx
-  const centerRow = scanRowFromCenter(cy, globalTh, W, cx);
-  let cellPx = centerRow.medGap;
-  if (cellPx < 5) {
-    for (let d = 1; d < H/2; d += 2) {
-      if (cy - d >= 2) {
-        const s = scanRowFromCenter(cy-d, globalTh, W, cx);
-        if (s.medGap >= 5) { cellPx = s.medGap; break; }
-      }
-      if (cy + d < H-2) {
-        const s = scanRowFromCenter(cy+d, globalTh, W, cx);
-        if (s.medGap >= 5) { cellPx = s.medGap; break; }
-      }
-    }
-  }
-  if (cellPx < 5) {
-    return { ok:false,
-             reason:'Ne najdem velikosti celice',
-             info: 'centerY='+cy+' medGap='+centerRow.medGap.toFixed(1),
-             thresholds:{th0:globalTh, th1:globalTh, th2:globalTh},
-             yRow0:0, yRow1:0, yRow2:0, rowH:0, cellPx:0, detected:false };
-  }
+  // ---------- TRIJE FIKSNI PASOVI ----------
+  // Srednji vedno na sredini cropa
+  // Zgornji in spodnji za rowSpacingPx od sredine
+  const yRow1 = cy;                                       // srednji (bit4-7)
+  const yRow0 = Math.max(2, cy - rowSpacingPx);           // zgornji (bit0-3)
+  const yRow2 = Math.min(H - 3, cy + rowSpacingPx);       // spodnji (CLOCK)
 
-  // 2) CLOCK vrstica: največ prehodov, medGap ~ cellPx, prednost bližini sredine
-  const yProfile = new Int16Array(H);
-  const yGap = new Int16Array(H);
-  let bestY = -1, bestCount = 0, bestDist = Infinity;
-
-  const acceptTol = 0.35;
-
-  for (let y = 2; y < H - 2; y++) {
-    const s = scanRowFromCenter(y, globalTh, W, cx);
-    yProfile[y] = s.count;
-    yGap[y] = Math.round(s.medGap);
-    const gapOK = s.medGap > 5 && Math.abs(s.medGap - cellPx)/cellPx < acceptTol;
-    if (gapOK) {
-      const distFromCenter = Math.abs(y - cy);
-      const score = s.count - 0.05 * distFromCenter;
-      const bestScore = bestCount - 0.05 * bestDist;
-      if (score > bestScore || bestY < 0) {
-        bestCount = s.count;
-        bestY = y;
-        bestDist = distFromCenter;
-      }
-    }
-  }
-
-  const top = [];
-  for (let y = 2; y < H-2; y++) {
-    if (yGap[y] > 5 && Math.abs(yGap[y] - cellPx)/cellPx < acceptTol) {
-      top.push({ y, t: yProfile[y], g: yGap[y], d: Math.abs(y-cy) });
-    }
-  }
-  top.sort((a,b) => (b.t - 0.05*b.d) - (a.t - 0.05*a.d));
-  const topInfo = 'cellPx~'+cellPx.toFixed(1)+' top: ' +
-    top.slice(0,5).map(o => 'y='+o.y+'(t'+o.t+',g'+o.g+',d'+o.d+')').join(' ');
-
-  if (bestY < 0) {
-    return { ok:false, reason:'Ni CLOCK vrstice',
-             info: topInfo,
-             thresholds:{th0:globalTh, th1:globalTh, th2:globalTh},
-             yRow0:0, yRow1:0, yRow2:0, rowH:0, cellPx, detected:false };
-  }
-
-  // zgladi yRow2
-  let sw = 0, syw = 0;
-  for (let y = Math.max(0, bestY-4); y <= Math.min(H-1, bestY+4); y++) {
-    if (yGap[y] < 5) continue;
-    const t = yProfile[y];
-    sw += t; syw += y * t;
-  }
-  const yRow2 = Math.round(syw / Math.max(1, sw));
-
-  // 3) Preberi prehode CLOCK
+  // ---------- Preberi prehode v CLOCK vrstici (yRow2) ----------
   const clockScan = scanRowFromCenter(yRow2, globalTh, W, cx);
   const clockTrans = clockScan.trans;
   if (clockTrans.length < 6) {
     return { ok:false, reason:'CLOCK premalo prehodov ('+clockTrans.length+')',
-             info: topInfo,
+             info: 'yRow0='+yRow0+' yRow1='+yRow1+' yRow2='+yRow2+' spacing='+rowSpacingPx,
              thresholds:{th0:globalTh, th1:globalTh, th2:globalTh},
-             yRow0:0, yRow1:0, yRow2, rowH:0, cellPx, detected:false };
+             yRow0, yRow1, yRow2, rowH: rowSpacingPx, cellPx:0, detected:false };
   }
 
-  // natančnejši cellPx
+  // Izmeri cellPx iz prehodov (horizontalna širina celice)
   const clockGaps = [];
   for (let i = 1; i < clockTrans.length; i++) {
     const g = clockTrans[i]-clockTrans[i-1];
     if (g > 2) clockGaps.push(g);
   }
-  if (clockGaps.length > 0) {
-    clockGaps.sort((a,b)=>a-b);
-    const nc = clockGaps[Math.floor(clockGaps.length/2)];
-    if (Math.abs(nc - cellPx)/cellPx < 0.35) cellPx = nc;
-  }
-
-  // 4) yRow1, yRow0
-  const yRow1 = Math.round(yRow2 - cellPx);
-  const yRow0 = Math.round(yRow2 - 2*cellPx);
-
-  if (yRow0 < 0 || yRow2 >= H) {
-    return { ok:false,
-             reason:'Vrstice izven cropa (yRow0='+yRow0+', yRow2='+yRow2+')',
-             info: topInfo,
+  if (clockGaps.length === 0) {
+    return { ok:false, reason:'Ni veljavnih gapov',
+             info: 'yRow0='+yRow0+' yRow1='+yRow1+' yRow2='+yRow2,
              thresholds:{th0:globalTh, th1:globalTh, th2:globalTh},
-             yRow0, yRow1, yRow2, rowH: cellPx, cellPx, detected:false };
+             yRow0, yRow1, yRow2, rowH: rowSpacingPx, cellPx:0, detected:false };
   }
+  clockGaps.sort((a,b)=>a-b);
+  const cellPx = clockGaps[Math.floor(clockGaps.length/2)];
 
-  // 5) Thresholdi
+  // ---------- Threshold za vsako vrstico ----------
   let th0, th1, th2;
   if (useOtsu) {
     th0 = otsuRegion(0, Math.max(0, yRow0-3), W, Math.min(H, yRow0+4)) + thOffset;
@@ -449,7 +378,7 @@ function readFrame() {
   th1 = Math.max(0, Math.min(255, th1));
   th2 = Math.max(0, Math.min(255, th2));
 
-  // 6) Filtriraj prehode
+  // ---------- Filtriraj prehode (isti kot prej) ----------
   const good = [clockTrans[0]];
   for (let i = 1; i < clockTrans.length; i++) {
     const g = clockTrans[i] - good[good.length-1];
@@ -458,13 +387,13 @@ function readFrame() {
   }
   if (good.length < 5) {
     return { ok:false, reason:'Premalo celic ('+good.length+')',
-             info: topInfo,
+             info: 'yRow0='+yRow0+' yRow1='+yRow1+' yRow2='+yRow2+' cellPx='+cellPx.toFixed(1),
              thresholds:{th0,th1,th2}, yRow0, yRow1, yRow2,
-             rowH: cellPx, cellPx, detected:true };
+             rowH: rowSpacingPx, cellPx, detected:true };
   }
   const numCells = good.length - 1;
 
-  // 7) Preberi celice
+  // ---------- Preberi celice z glasovanjem ----------
   const cellCenters = [], upper = [], lower = [];
   for (let i = 0; i < numCells; i++) {
     const xc = Math.round((good[i] + good[i+1]) / 2);
@@ -491,9 +420,9 @@ function readFrame() {
   }
   if (cands.length === 0) {
     return { ok:false, reason:'Ni kandidatov',
-             info: topInfo,
+             info: 'yRow0='+yRow0+' yRow1='+yRow1+' yRow2='+yRow2,
              thresholds:{th0,th1,th2}, yRow0, yRow1, yRow2,
-             rowH: cellPx, cellPx, detected:true };
+             rowH: rowSpacingPx, cellPx, detected:true };
   }
 
   let bestS=0, bestL=0, curS=0;
@@ -505,9 +434,9 @@ function readFrame() {
   if (cands.length-curS>bestL) { bestL = cands.length-curS; bestS = curS; }
   if (bestL < 1) {
     return { ok:false, reason:'Ni niza',
-             info: topInfo,
+             info: 'yRow0='+yRow0+' yRow1='+yRow1+' yRow2='+yRow2+' cellPx='+cellPx.toFixed(1),
              thresholds:{th0,th1,th2}, yRow0, yRow1, yRow2,
-             rowH: cellPx, cellPx, detected:true, numCells };
+             rowH: rowSpacingPx, cellPx, detected:true, numCells };
   }
 
   let cellAtCx = -1;
@@ -537,9 +466,9 @@ function readFrame() {
   }
   if (!chosen) {
     return { ok:false, reason:'Ni okna',
-             info: topInfo,
+             info: 'yRow0='+yRow0+' yRow1='+yRow1+' yRow2='+yRow2,
              thresholds:{th0,th1,th2}, yRow0, yRow1, yRow2,
-             rowH: cellPx, cellPx, detected:true, numCells };
+             rowH: rowSpacingPx, cellPx, detected:true, numCells };
   }
 
   const cRef = chosenCRef;
@@ -566,16 +495,16 @@ function readFrame() {
     bits: chosen.bits,
     bitPoints, gridLines: good,
     refLeft, refRight,
-    yRow0, yRow1, yRow2, rowH: cellPx,
+    yRow0, yRow1, yRow2, rowH: rowSpacingPx,
     cellAtCx, chosenI: chosen.i, bestLen: bestL, bestStart: bestS,
     numCells, transitions: good,
     cands, thresholds: { th0, th1, th2 },
     detected:true, detectedTrans: clockTrans.length,
-    info: 'AUTO crop=' + cropHeightPct + '% pos=' + cropPosPct + '% ' + topInfo
+    info: 'FIX crop=' + cropHeightPct + '% pos=' + cropPosPct +
+          '% spacing=' + rowSpacingPx + 'px cellPx=' + cellPx.toFixed(1)
   };
 }
 
-// Snemanje videa v processC s cropom
 function snapshotCamera() {
   if (!videoReady) return;
   const Vw = video.videoWidth;
@@ -584,20 +513,16 @@ function snapshotCamera() {
   const maxTop = Vh - cropH;
   const cropTop = Math.round(maxTop * cropPosPct / 100);
 
-  // Nastavi dimenzije processC (samo če se spremenijo)
   if (processC.width !== Vw || processC.height !== cropH) {
     processC.width = Vw;
     processC.height = cropH;
     overlay.width = Vw;
     overlay.height = cropH;
-    // Update aspect-ratio
     camWrap.style.aspectRatio = Vw + ' / ' + cropH;
   }
-
   pctx.drawImage(video, 0, cropTop, Vw, cropH, 0, 0, Vw, cropH);
 }
 
-// Vodila – enako kot v19
 function drawGuidesOnOverlay(debug) {
   const W = overlay.width, H = overlay.height;
   ovctx.clearRect(0,0,W,H);
@@ -605,25 +530,32 @@ function drawGuidesOnOverlay(debug) {
     ovctx.drawImage(processC, 0, 0, W, H);
   }
 
-  if (contrastOn && debug && debug.thresholds && debug.yRow2 > 0) {
-    const th = debug.thresholds;
+  // Trije fiksni pasovi – vedno vidni
+  if (debug && debug.yRow0 !== undefined && debug.yRow2 > 0) {
     const yR0 = debug.yRow0, yR1 = debug.yRow1, yR2 = debug.yRow2;
     const bandH = Math.max(4, Math.round((debug.rowH||30) * 0.5));
-    for (let x = 4; x < W-4; x += 3) {
-      const v0 = px(x, yR0);
-      ovctx.fillStyle = v0 < th.th0 ? 'rgba(255,60,60,0.55)' : 'rgba(0,100,255,0.4)';
-      ovctx.fillRect(x, yR0 - bandH/2, 3, bandH);
+
+    // Kontrast
+    if (contrastOn && debug.thresholds) {
+      const th = debug.thresholds;
+      for (let x = 4; x < W-4; x += 3) {
+        const v0 = px(x, yR0);
+        ovctx.fillStyle = v0 < th.th0 ? 'rgba(255,60,60,0.55)' : 'rgba(0,100,255,0.4)';
+        ovctx.fillRect(x, yR0 - bandH/2, 3, bandH);
+      }
+      for (let x = 4; x < W-4; x += 3) {
+        const v1 = px(x, yR1);
+        ovctx.fillStyle = v1 < th.th1 ? 'rgba(255,60,60,0.55)' : 'rgba(0,100,255,0.4)';
+        ovctx.fillRect(x, yR1 - bandH/2, 3, bandH);
+      }
+      for (let x = 4; x < W-4; x += 3) {
+        const v2 = px(x, yR2);
+        ovctx.fillStyle = v2 < th.th2 ? 'rgba(255,60,60,0.55)' : 'rgba(0,100,255,0.4)';
+        ovctx.fillRect(x, yR2 - bandH/2, 3, bandH);
+      }
     }
-    for (let x = 4; x < W-4; x += 3) {
-      const v1 = px(x, yR1);
-      ovctx.fillStyle = v1 < th.th1 ? 'rgba(255,60,60,0.55)' : 'rgba(0,100,255,0.4)';
-      ovctx.fillRect(x, yR1 - bandH/2, 3, bandH);
-    }
-    for (let x = 4; x < W-4; x += 3) {
-      const v2 = px(x, yR2);
-      ovctx.fillStyle = v2 < th.th2 ? 'rgba(255,60,60,0.55)' : 'rgba(0,100,255,0.4)';
-      ovctx.fillRect(x, yR2 - bandH/2, 3, bandH);
-    }
+
+    // Rumene črte
     ovctx.strokeStyle = 'rgba(255,255,0,0.95)';
     ovctx.lineWidth = 1;
     ovctx.beginPath();
@@ -631,6 +563,13 @@ function drawGuidesOnOverlay(debug) {
     ovctx.moveTo(4, yR1); ovctx.lineTo(W-4, yR1);
     ovctx.moveTo(4, yR2); ovctx.lineTo(W-4, yR2);
     ovctx.stroke();
+
+    // Oznake na levi
+    ovctx.fillStyle = 'rgba(255,255,0,0.95)';
+    ovctx.font = 'bold 10px monospace';
+    ovctx.fillText('bit0-3', 6, yR0 - 4);
+    ovctx.fillText('bit4-7', 6, yR1 - 4);
+    ovctx.fillText('CLOCK',  6, yR2 - 4);
   }
 
   ovctx.fillStyle = 'red';
@@ -686,7 +625,6 @@ function update() {
     $('fineVal').textContent = fIn.toFixed(2);
     $('totalVal').textContent = P.toFixed(2)+' mm';
 
-    // Simulator uporablja dimenzije, kot bi jih imel crop
     if (processC.width !== overlay.width || processC.height !== overlay.height) {
       processC.width = overlay.width;
       processC.height = overlay.height;
@@ -748,7 +686,7 @@ function update() {
         '  crop ' + processC.width + 'x' + processC.height + '\n' +
         (r.info||'') + '\n' +
         'yRow0=' + r.yRow0 + '  yRow1=' + r.yRow1 + '  yRow2=' + r.yRow2 + '\n' +
-        'rowH=' + r.rowH.toFixed(1) + '  cellPx=' + r.cellPx.toFixed(1) + '\n' +
+        'cellPx=' + r.cellPx.toFixed(1) + '\n' +
         'th0=' + r.thresholds.th0.toFixed(0) +
         '  th1=' + r.thresholds.th1.toFixed(0) +
         '  th2=' + r.thresholds.th2.toFixed(0) + '\n' +
@@ -766,7 +704,8 @@ function update() {
         '  crop ' + processC.width + 'x' + processC.height + '\n' +
         (r.info||'') + '\n' +
         'Razlog: ' + (r.reason || '?') + '\n' +
-        'yRow0=' + r.yRow0 + '  yRow1=' + r.yRow1 + '  yRow2=' + r.yRow2;
+        'yRow0=' + r.yRow0 + '  yRow1=' + r.yRow1 + '  yRow2=' + r.yRow2 + '\n' +
+        'Nasvet: prilagodi razmak pasov ali premakni crop.';
     }
   }
   requestAnimationFrame(update);
@@ -775,29 +714,26 @@ function update() {
 function paramsToName() {
   const now = new Date();
   const ts = now.toISOString().replace(/[:.]/g,'-').slice(0,19);
-  const ch = cropHeightPct;
-  const cp = cropPosPct;
-  const th = manualTh;
-  const off = thOffset;
-  const otsu = useOtsu ? 1 : 0;
-  const or = orientation;
-  return 'v20_ch'+ch+'_cp'+cp+'_th'+th+'_off'+off+'_otsu'+otsu+'_'+or+'_'+ts+'.jpg';
+  return 'v21_ch'+cropHeightPct+'_cp'+cropPosPct+'_rs'+rowSpacingPx+
+         '_th'+manualTh+'_off'+thOffset+'_otsu'+(useOtsu?1:0)+'_'+orientation+'_'+ts+'.jpg';
 }
 function parseParamsFromName(name) {
-  const m = name.match(/ch(\d+)_cp(\d+)_th(\d+)_off(-?\d+)_otsu(\d+)_([hv])_/);
+  const m = name.match(/ch(\d+)_cp(\d+)_rs(\d+)_th(\d+)_off(-?\d+)_otsu(\d+)_([hv])_/);
   if (!m) return null;
   return {
     cropHeightPct: parseInt(m[1]),
     cropPosPct: parseInt(m[2]),
-    manualTh: parseInt(m[3]),
-    thOffset: parseInt(m[4]),
-    useOtsu: m[5] === '1',
-    orientation: m[6]
+    rowSpacingPx: parseInt(m[3]),
+    manualTh: parseInt(m[4]),
+    thOffset: parseInt(m[5]),
+    useOtsu: m[6] === '1',
+    orientation: m[7]
   };
 }
 function applyParams(p) {
   cropHeightPct = p.cropHeightPct;
   cropPosPct = p.cropPosPct;
+  rowSpacingPx = p.rowSpacingPx;
   manualTh = p.manualTh;
   thOffset = p.thOffset;
   useOtsu = p.useOtsu;
@@ -806,6 +742,8 @@ function applyParams(p) {
   $('cropHeightVal').textContent = cropHeightPct + ' %';
   $('cropPos').value = cropPosPct;
   $('cropPosVal').textContent = cropPosPct + ' %';
+  $('rowSpacing').value = rowSpacingPx;
+  $('rowSpacingVal').textContent = rowSpacingPx + ' px';
   $('thSlider').value = manualTh;
   $('thVal').textContent = manualTh;
   $('thOffset').value = thOffset;
@@ -816,7 +754,6 @@ function applyParams(p) {
 }
 
 function updateCrop() {
-  // Nastavi object-position na videu
   video.style.objectPosition = 'center ' + cropPosPct + '%';
 }
 
@@ -939,7 +876,6 @@ function toggleMode() {
     $('toggle').textContent = 'Na kamero';
     statusEl.textContent = 'Simulator';
     video.style.opacity = 0;
-    // Za simulator: uporabi crop dimenzije
     const Vw = 1280, Vh = 720;
     const cropH = Math.round(Vh * cropHeightPct / 100);
     processC.width = Vw; processC.height = cropH;
@@ -983,6 +919,10 @@ $('cropPos').oninput = e => {
   cropPosPct = parseInt(e.target.value);
   $('cropPosVal').textContent = cropPosPct + ' %';
   updateCrop();
+};
+$('rowSpacing').oninput = e => {
+  rowSpacingPx = parseInt(e.target.value);
+  $('rowSpacingVal').textContent = rowSpacingPx + ' px';
 };
 $('thSlider').oninput = e => { manualTh = parseInt(e.target.value); $('thVal').textContent = manualTh; };
 $('thOffset').oninput = e => {
