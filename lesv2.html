@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#111">
+<title>Premerka v25</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin:0; padding:0; font-family:-apple-system,Roboto,sans-serif;
+    background:#111; color:#eee; overflow-x:hidden; touch-action:manipulation; }
+  body { display:flex; flex-direction:column; align-items:center; padding:0 0 16px; }
+
+  .header {
+    width:100vw; display:grid; grid-template-columns:auto 1fr;
+    gap:4px 10px; align-items:center;
+    padding:4px 10px; background:#000;
+    font-family:ui-monospace,monospace; font-size:11px; color:#8f8;
+  }
+  .header .ver { color:#4f4; font-weight:bold; font-size:14px; grid-row:1/3; }
+  .header .prebrano { font-size:18px; font-weight:bold; text-align:right; color:#888; }
+  .header .napaka { font-size:11px; text-align:right; color:#888; }
+
+  .header.c3 .prebrano, .header.c3 .napaka,
+  .header.c2 .prebrano, .header.c2 .napaka { color:#4f4; }
+  .header.c1 .prebrano, .header.c1 .napaka { color:#f80; }
+  .header.c0 .prebrano, .header.c0 .napaka { color:#f44; }
+
+  .camera-wrap {
+    position:relative; width:100vw;
+    aspect-ratio: 16 / 9;
+    background:#000;
+    border-top:2px solid #333; border-bottom:2px solid #333;
+    overflow:hidden; margin:0 0 6px;
+  }
+  #v { position:absolute; top:0; left:0; width:100%; height:100%;
+    object-fit: cover; object-position: center 50%;
+    z-index: 1; background: #000; }
+  #overlay { position:absolute; top:0; left:0; width:100%; height:100%;
+    pointer-events:none; z-index: 2; }
+  #process { display:none; }
+
+  .controls { width:100vw; max-width:640px; display:flex; flex-direction:column; gap:6px; padding:0 10px; }
+  .row { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  .row.hidden { display:none !important; }
+  button { padding:10px 14px; font-size:clamp(13px,3.5vw,16px); border:none; border-radius:8px;
+    background:#4f4; color:#111; font-weight:bold; box-shadow:0 3px 0 #2a2; flex:1;
+    min-height:44px; white-space:nowrap; }
+  button:active { transform:translateY(2px); box-shadow:0 1px 0 #2a2; }
+  button.alt { background:#48f; color:#fff; box-shadow:0 3px 0 #25a; }
+  button.export { background:#f90; color:#111; box-shadow:0 3px 0 #a60; }
+  button.small { flex:0 0 auto; min-width:auto; padding:8px 12px; font-size:13px; }
+  button.save { background:#e91; color:#fff; box-shadow:0 3px 0 #a60; }
+  select { flex:1; min-width:110px; padding:8px 10px; font-size:13px;
+    background:#222; color:#eee; border:2px solid #444; border-radius:8px; -webkit-appearance:none; }
+  input[type=range] { -webkit-appearance:none; appearance:none; flex:1; min-width:100px;
+    height:44px; background:transparent; margin:0; touch-action:none; }
+  input[type=range]::-webkit-slider-runnable-track { height:16px; background:#333;
+    border-radius:8px; border:2px solid #555; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; appearance:none;
+    width:26px; height:26px; background:#48f; border:3px solid #fff;
+    border-radius:50%; margin-top:-7px; }
+  .val { font-size:clamp(14px,3.5vw,20px); font-weight:bold; color:#4f4; }
+  .label { font-size:clamp(12px,3.2vw,16px); color:#bbb; font-weight:bold; min-width:100px; flex-shrink:0; }
+  #status { font-size:clamp(10px,2.8vw,13px); color:#888; margin-left:auto; }
+  #testOut { font-family:ui-monospace,monospace; font-size:10px;
+    color:#8f8; white-space:pre; max-height:32vh; overflow:auto; background:#000;
+    padding:6px; border-radius:6px; line-height:1.25; width:100%; }
+  .warnmsg { color:#f80; font-weight:bold; padding:4px; }
+</style>
+</head>
+<body>
+
+<div class="header c0" id="hdr">
+  <span class="ver">v25</span>
+  <span class="prebrano" id="headerVal">– mm</span>
+  <span class="napaka" id="headerErr">Napaka: –</span>
+</div>
+
+<div class="camera-wrap" id="camWrap">
+  <video id="v" autoplay playsinline muted></video>
+  <canvas id="overlay"></canvas>
+</div>
+<canvas id="process"></canvas>
+
+<div class="controls">
+  <div class="row"><span class="label">Kamera</span><select id="camSelect"></select></div>
+
+  <div class="row">
+    <button id="orientBtn" class="small">Vodoravno</button>
+    <button id="loadBtn" class="small">Naloži JPG</button>
+    <button id="saveBtn" class="save">Shrani JPG+parametri</button>
+  </div>
+
+  <div class="row">
+    <button id="toggle">Na simulator</button>
+    <button id="exportBtn" class="export">Izvozi A4</button>
+  </div>
+
+  <div class="row">
+    <span class="label">Višina crop</span>
+    <input type="range" id="cropHeight" min="10" max="60" step="1" value="25">
+    <span id="cropHeightVal" class="val">25 %</span>
+  </div>
+  <div class="row">
+    <span class="label">Območje</span>
+    <input type="range" id="cropPos" min="0" max="100" step="1" value="50">
+    <span id="cropPosVal" class="val">50 %</span>
+  </div>
+  <div class="row">
+    <span class="label">Razmak pasov</span>
+    <input type="range" id="rowSpacing" min="5" max="200" step="1" value="50">
+    <span id="rowSpacingVal" class="val">50 px</span>
+  </div>
+
+  <div class="row simOnly hidden">
+    <span class="label">Grobo</span>
+    <input type="range" id="coarse" min="-500" max="1500" step="5" value="0">
+    <span id="coarseVal" class="val">0 mm</span>
+  </div>
+  <div class="row simOnly hidden">
+    <span class="label">Fino</span>
+    <input type="range" id="fine" min="-30" max="30" step="0.01" value="0">
+    <span id="fineVal" class="val">0.00</span>
+  </div>
+
+  <div class="row">
+    <label style="display:flex;align-items:center;gap:5px;font-size:15px;color:#4f4;">
+      <input type="checkbox" id="otsuChk" checked style="width:18px;height:18px;">
+      Otsu threshold
+    </label>
+  </div>
+
+  <div class="row manualTh hidden">
+    <span class="label">Threshold</span>
+    <input type="range" id="thSlider" min="0" max="255" step="1" value="128">
+    <span id="thVal" class="val">128</span>
+  </div>
+  <div class="row manualTh hidden">
+    <span class="label">Offset</span>
+    <input type="range" id="thOffset" min="-60" max="60" step="1" value="0">
+    <span id="thOffsetVal" class="val">0</span>
+  </div>
+
+  <div class="row">
+    <label style="display:flex;align-items:center;gap:5px;font-size:14px;color:#bbb;">
+      <input type="checkbox" id="showNeighborsChk" checked style="width:18px;height:18px;">
+      Prikaži sosede (L/C/R točke)
+    </label>
+  </div>
+
+  <div class="row"><span id="status">Čakam na video...</span></div>
+  <div id="testOut"></div>
+</div>
+
+<input type="file" id="fileInput" accept="image/*" style="display:none">
+
+<script>
+const VERSION = 'v25';
+const LINE_THICKNESS = 10;
+const STORAGE_KEY = 'premerka_v25_settings';
+const RATIO_TOLERANCE = 0.30;  // 30% dovoljeno odstopanje med cellPx in rowSpacingPx
+
+const $ = id => document.getElementById(id);
+const CODE_OFFSET = 100;
+
+function deBruijn(k, n) {
+  const a = new Array(n+1).fill(0), seq = [];
+  (function db(t,p){
+    if (t>n){ if(n%p===0) for(let i=1;i<=p;i++) seq.push(a[i]); }
+    else { a[t]=a[t-p]; db(t+1,p);
+      for(let j=a[t-p]+1;j<k;j++){ a[t]=j; db(t+1,t); } }
+  })(1,1);
+  return seq;
+}
+const DB = deBruijn(2,8);
+const LOOKUP = new Array(256).fill(-1);
+for (let i = 0; i < 256; i++) {
+  let w = 0;
+  for (let j = 0; j < 8; j++) w |= DB[(i+j) & 0xFF] << j;
+  LOOKUP[w] = i;
+}
+
+const video    = $('v');
+const overlay  = $('overlay');
+const ovctx    = overlay.getContext('2d');
+const processC = $('process');
+const pctx     = processC.getContext('2d', { willReadFrequently:true });
+const camWrap  = $('camWrap');
+const statusEl = $('status');
+const fileInput = $('fileInput');
+const headerVal = $('headerVal');
+const headerErr = $('headerErr');
+const hdr = $('hdr');
+
+let mode = 'camera';
+let orientation = 'h';
+let stream = null, currentDeviceId = null;
+
+// Nastavitve (shranjene lokalno)
+let cropHeightPct = 25;
+let cropPosPct = 50;
+let rowSpacingPx = 50;
+let manualTh = 128, thOffset = 0;
+let useOtsu = true;
+let showNeighbors = true;
+
+let videoReady = false;
+const debugOn = true;
+const contrastOn = true;
+
+let frameData = null, FW = 0, FH = 0;
+
+// ---------- LocalStorage ----------
+function saveSettings() {
+  try {
+    const s = {
+      cropHeightPct, cropPosPct, rowSpacingPx,
+      manualTh, thOffset, useOtsu, showNeighbors,
+      orientation
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+  } catch (e) {}
+}
+function loadSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    if (typeof s.cropHeightPct === 'number') cropHeightPct = s.cropHeightPct;
+    if (typeof s.cropPosPct === 'number') cropPosPct = s.cropPosPct;
+    if (typeof s.rowSpacingPx === 'number') rowSpacingPx = s.rowSpacingPx;
+    if (typeof s.manualTh === 'number') manualTh = s.manualTh;
+    if (typeof s.thOffset === 'number') thOffset = s.thOffset;
+    if (typeof s.useOtsu === 'boolean') useOtsu = s.useOtsu;
+    if (typeof s.showNeighbors === 'boolean') showNeighbors = s.showNeighbors;
+    if (s.orientation === 'h' || s.orientation === 'v') orientation = s.orientation;
+    // Posodobi UI
+    $('cropHeight').value = cropHeightPct;
+    $('cropHeightVal').textContent = cropHeightPct + ' %';
+    $('cropPos').value = cropPosPct;
+    $('cropPosVal').textContent = cropPosPct + ' %';
+    $('rowSpacing').value = rowSpacingPx;
+    $('rowSpacingVal').textContent = rowSpacingPx + ' px';
+    $('thSlider').value = manualTh;
+    $('thVal').textContent = manualTh;
+    $('thOffset').value = thOffset;
+    $('thOffsetVal').textContent = (thOffset > 0 ? '+' : '') + thOffset;
+    $('otsuChk').checked = useOtsu;
+    $('showNeighborsChk').checked = showNeighbors;
+    $('orientBtn').textContent = orientation === 'h' ? 'Vodoravno' : 'Navpično';
+  } catch (e) {}
+}
+
+function cacheFrame() {
+  if (processC.width < 4 || processC.height < 4) return false;
+  FW = processC.width; FH = processC.height;
+  frameData = pctx.getImageData(0, 0, FW, FH);
+  return true;
+}
+function px(x, y) {
+  x = x|0; y = y|0;
+  if (x < 0 || y < 0 || x >= FW || y >= FH || !frameData) return 255;
+  const idx = (y * FW + x) * 4;
+  return (frameData.data[idx] + frameData.data[idx+1] + frameData.data[idx+2]) / 3;
+}
+
+function otsuStrip(yc, halfBand) {
+  const y0 = Math.max(0, yc - halfBand);
+  const y1 = Math.min(FH, yc + halfBand);
+  if (y1 <= y0) return 128;
+  const hist = new Array(256).fill(0);
+  let total = 0;
+  for (let y = y0; y < y1; y++)
+    for (let x = 2; x < FW-2; x += 2) {
+      const v = Math.round(px(x, y));
+      hist[Math.min(255, Math.max(0, v))]++;
+      total++;
+    }
+  if (total === 0) return 128;
+  let sum = 0;
+  for (let i = 0; i < 256; i++) sum += i * hist[i];
+  let sumB = 0, wB = 0, max = 0, threshold = 128;
+  for (let t = 0; t < 256; t++) {
+    wB += hist[t]; if (wB === 0) continue;
+    const wF = total - wB; if (wF === 0) break;
+    sumB += t * hist[t];
+    const mB = sumB / wB, mF = (sum - sumB) / wF;
+    const between = wB * wF * (mB - mF) * (mB - mF);
+    if (between > max) { max = between; threshold = t; }
+  }
+  return threshold;
+}
+
+function scanRowFromCenter(y, thresh, W, cx) {
+  const trans = [];
+  let prev = px(cx, y) < thresh ? 1 : 0;
+  for (let x = cx+1; x < W; x++) {
+    const v = px(x, y) < thresh ? 1 : 0;
+    if (v !== prev) { trans.push(x); prev = v; }
+  }
+  prev = px(cx, y) < thresh ? 1 : 0;
+  const left = [];
+  for (let x = cx-1; x >= 0; x--) {
+    const v = px(x, y) < thresh ? 1 : 0;
+    if (v !== prev) { left.push(x); prev = v; }
+  }
+  left.reverse();
+  const all = [...left, ...trans];
+  if (all.length < 2) return { trans: all, medGap: 0, count: all.length };
+  const gaps = [];
+  for (let i = 1; i < all.length; i++) {
+    const g = all[i]-all[i-1];
+    if (g > 2) gaps.push(g);
+  }
+  if (gaps.length === 0) return { trans: all, medGap: 0, count: all.length };
+  gaps.sort((a,b)=>a-b);
+  return { trans: all, medGap: gaps[Math.floor(gaps.length/2)], count: all.length };
+}
+
+function drawSimulator(P) {
+  const W = processC.width, H = processC.height, cx = W/2;
+  const Pphys = P + CODE_OFFSET;
+  pctx.fillStyle = 'white'; pctx.fillRect(0, 0, W, H);
+  const rowH = H / 3;
+  const pxPerMm = rowH / 5;
+  const yTop = 0;
+  const c0 = Math.floor(Pphys / 5);
+  const xOf = col => Math.round(cx + (col*5 - Pphys) * pxPerMm);
+  const cellW = Math.round(5 * pxPerMm);
+  const colMin = Math.max(0, c0 - Math.ceil(W/2 / Math.max(1,cellW)) - 2);
+  const colMax = Math.min(255, c0 + Math.ceil(W/2 / Math.max(1,cellW)) + 2);
+  for (let col = colMin; col <= colMax; col++) {
+    const x = xOf(col);
+    if (x + cellW < 0 || x > W) continue;
+    pctx.fillStyle = DB[col & 0xFF] ? 'black' : 'white';
+    pctx.fillRect(x, Math.round(yTop), cellW, Math.round(rowH));
+    pctx.fillStyle = DB[(col+4) & 0xFF] ? 'black' : 'white';
+    pctx.fillRect(x, Math.round(yTop + rowH), cellW, Math.round(rowH));
+    pctx.fillStyle = (col & 1) ? 'white' : 'black';
+    pctx.fillRect(x, Math.round(yTop + 2*rowH), cellW, Math.round(rowH));
+  }
+}
+
+function readFrame() {
+  const W = processC.width, H = processC.height;
+  const cx = Math.floor(W/2);
+  const cy = Math.floor(H/2);
+
+  const yRow1 = cy;
+  const yRow0 = Math.max(2, cy - rowSpacingPx);
+  const yRow2 = Math.min(H - 3, cy + rowSpacingPx);
+
+  const bandH = Math.max(4, Math.round(rowSpacingPx * 0.5));
+  let th0, th1, th2;
+  if (useOtsu) {
+    th0 = otsuStrip(yRow0, bandH) + thOffset;
+    th1 = otsuStrip(yRow1, bandH) + thOffset;
+    th2 = otsuStrip(yRow2, bandH) + thOffset;
+  } else {
+    th0 = th1 = th2 = manualTh + thOffset;
+  }
+  th0 = Math.max(0, Math.min(255, th0));
+  th1 = Math.max(0, Math.min(255, th1));
+  th2 = Math.max(0, Math.min(255, th2));
+
+  const clockScan = scanRowFromCenter(yRow2, th2, W, cx);
+  const clockTrans = clockScan.trans;
+  if (clockTrans.length < 6) {
+    return { ok:false, reason:'CLOCK premalo prehodov ('+clockTrans.length+')',
+             info: 'yRow0='+yRow0+' yRow1='+yRow1+' yRow2='+yRow2+' spacing='+rowSpacingPx,
+             thresholds:{th0,th1,th2},
+             yRow0, yRow1, yRow2, rowH: rowSpacingPx, cellPx:0, detected:false };
+  }
+
+  const clockGaps = [];
+  for (let i = 1; i < clockTrans.length; i++) {
+    const g = clockTrans[i]-clockTrans[i-1];
+    if (g > 2) clockGaps.push(g);
+  }
+  if (clockGaps.length === 0) {
+    return { ok:false, reason:'Ni veljavnih gapov',
+             info: 'yRow0='+yRow0+' yRow1='+yRow1+' yRow2='+yRow2,
+             thresholds:{th0,th1,th2},
+             yRow0, yRow1, yRow2, rowH: rowSpacingPx, cellPx:0, detected:false };
+  }
+  clockGaps.sort((a,b)=>a-b);
+  const cellPx = clockGaps[Math.floor(clockGaps.length/2)];
+
+  // ---- PREVERJANJE RAZMERJA cellPx : rowSpacingPx ----
+  // Če sta si podobna (znotraj tolerance), je vse OK.
+  // Če se razlikujeta preveč, najverjetneje branje zajema šum
+  // ali razmak pasov ni pravi.
+  const ratio = cellPx / rowSpacingPx;
+  const ratioOK = ratio > (1 - RATIO_TOLERANCE) && ratio < (1 + RATIO_TOLERANCE);
+
+  const good = [clockTrans[0]];
+  for (let i = 1; i < clockTrans.length; i++) {
+    const g = clockTrans[i] - good[good.length-1];
+    if (g >= cellPx*0.5 && g <= cellPx*1.6) good.push(clockTrans[i]);
+    else if (g > cellPx*1.6) good.push(clockTrans[i]);
+  }
+  if (good.length < 5) {
+    return { ok:false, reason:'Premalo celic ('+good.length+')',
+             info: 'yRow0='+yRow0+' yRow1='+yRow1+' yRow2='+yRow2+' cellPx='+cellPx.toFixed(1),
+             thresholds:{th0,th1,th2}, yRow0, yRow1, yRow2,
+             rowH: rowSpacingPx, cellPx, detected:true,
+             ratio, ratioOK };
+  }
+  const numCells = good.length - 1;
+
+  const cellCenters = [], upper = [], lower = [];
+  for (let i = 0; i < numCells; i++) {
+    const xc = Math.round((good[i] + good[i+1]) / 2);
+    cellCenters.push(xc);
+    let v0=0, v1=0, nn=0;
+    for (const dx of [-8,-4,0,4,8]) {
+      if (xc+dx < 1 || xc+dx > W-1) continue;
+      v0 += px(xc+dx, yRow0) < th0 ? 1 : 0;
+      v1 += px(xc+dx, yRow1) < th1 ? 1 : 0;
+      nn++;
+    }
+    upper.push(v0 > nn/2 ? 1 : 0);
+    lower.push(v1 > nn/2 ? 1 : 0);
+  }
+
+  const cands = [];
+  for (let i = 0; i <= numCells-4; i++) {
+    let bits = 0;
+    for (let k = 0; k < 4; k++) {
+      bits |= upper[i+k] << k;
+      bits |= lower[i+k] << (4+k);
+    }
+    cands.push({ i, bits, c: LOOKUP[bits] });
+  }
+  if (cands.length === 0) {
+    return { ok:false, reason:'Ni kandidatov',
+             info: 'yRow0='+yRow0+' yRow1='+yRow1+' yRow2='+yRow2,
+             thresholds:{th0,th1,th2}, yRow0, yRow1, yRow2,
+             rowH: rowSpacingPx, cellPx, detected:true,
+             ratio, ratioOK };
+  }
+
+  let bestS=0, bestL=0, curS=0;
+  for (let k = 0; k < cands.length; k++) {
+    const p = cands[k-1], w = cands[k];
+    const cons = k>0 && p.c>=0 && w.c>=0 && ((w.c-p.c+256)%256===1);
+    if (!cons) { if (k-curS>bestL){bestL=k-curS;bestS=curS;} curS=k; }
+  }
+  if (cands.length-curS>bestL) { bestL = cands.length-curS; bestS = curS; }
+  if (bestL < 1) {
+    return { ok:false, reason:'Ni niza',
+             info: 'yRow0='+yRow0+' yRow1='+yRow1+' yRow2='+yRow2+' cellPx='+cellPx.toFixed(1),
+             thresholds:{th0,th1,th2}, yRow0, yRow1, yRow2,
+             rowH: rowSpacingPx, cellPx, detected:true, numCells,
+             ratio, ratioOK };
+  }
+
+  let cellAtCx = -1;
+  for (let i = 0; i < numCells; i++) {
+    if (good[i] <= cx && cx < good[i+1]) { cellAtCx = i; break; }
+  }
+  if (cellAtCx < 0) cellAtCx = Math.floor(numCells/2);
+
+  let chosen = null, chosenCRef = null;
+  for (let k = bestS; k < bestS+bestL; k++) {
+    const cand = cands[k];
+    if (cand.c < 0) continue;
+    if (cellAtCx >= cand.i && cellAtCx <= cand.i+3) {
+      chosen = cand;
+      chosenCRef = cand.c + (cellAtCx - cand.i);
+      break;
+    }
+  }
+  if (!chosen) {
+    let bd = Infinity;
+    for (let k = bestS; k < bestS+bestL; k++) {
+      const cand = cands[k];
+      if (cand.c < 0) continue;
+      const d = Math.abs(cand.i - cellAtCx);
+      if (d < bd) { bd = d; chosen = cand; chosenCRef = cand.c + (cellAtCx - cand.i); }
+    }
+  }
+  if (!chosen) {
+    return { ok:false, reason:'Ni okna',
+             info: 'yRow0='+yRow0+' yRow1='+yRow1+' yRow2='+yRow2,
+             thresholds:{th0,th1,th2}, yRow0, yRow1, yRow2,
+             rowH: rowSpacingPx, cellPx, detected:true, numCells,
+             ratio, ratioOK };
+  }
+
+  const cRef = chosenCRef;
+  const cHere = chosen.c;
+  const idx = chosen.i;
+  let leftC = -1, rightC = -1;
+  if (idx > 0 && cands[idx-1]) leftC = cands[idx-1].c;
+  if (idx+1 < cands.length && cands[idx+1]) rightC = cands[idx+1].c;
+  const leftOK = (leftC >= 0) && (leftC === ((cHere - 1 + 256) % 256));
+  const rightOK = (rightC >= 0) && (rightC === ((cHere + 1) % 256));
+  const consistency = 1 + (leftOK?1:0) + (rightOK?1:0);
+
+  const refLeft  = good[cellAtCx];
+  const refRight = good[cellAtCx+1];
+  const refW = refRight - refLeft;
+  let delta = (cx - refLeft) / refW * 5;
+  delta = Math.max(0, Math.min(5, delta));
+
+  const mm_phys = cRef * 5 + delta;
+  const mm = mm_phys - CODE_OFFSET;
+
+  // Točke centra
+  const bitPoints = [];
+  for (let k = 0; k < 4; k++) {
+    const gi = chosen.i + k;
+    if (gi < 0 || gi >= numCells) continue;
+    bitPoints.push({ x: cellCenters[gi], y: yRow0, bit: k });
+    bitPoints.push({ x: cellCenters[gi], y: yRow1, bit: k+4 });
+  }
+  // Točke levega soseda
+  const leftPoints = [];
+  if (idx > 0) {
+    for (let k = 0; k < 4; k++) {
+      const gi = idx - 1 + k;
+      if (gi < 0 || gi >= numCells) continue;
+      leftPoints.push({ x: cellCenters[gi], y: yRow0, bit: k });
+      leftPoints.push({ x: cellCenters[gi], y: yRow1, bit: k+4 });
+    }
+  }
+  // Točke desnega soseda
+  const rightPoints = [];
+  if (idx + 1 < cands.length) {
+    for (let k = 0; k < 4; k++) {
+      const gi = idx + 1 + k;
+      if (gi < 0 || gi >= numCells) continue;
+      rightPoints.push({ x: cellCenters[gi], y: yRow0, bit: k });
+      rightPoints.push({ x: cellCenters[gi], y: yRow1, bit: k+4 });
+    }
+  }
+
+  return {
+    ok:true, mm, mm_phys, c:cRef, delta,
+    cellPx, cellW: refW, ratio, ratioOK,
+    bits: chosen.bits,
+    bitPoints, leftPoints, rightPoints,
+    gridLines: good,
+    refLeft, refRight,
+    yRow0, yRow1, yRow2, rowH: rowSpacingPx,
+    cellAtCx, chosenI: chosen.i, bestLen: bestL, bestStart: bestS,
+    numCells, transitions: good,
+    cands, thresholds: { th0, th1, th2 },
+    detected:true, detectedTrans: clockTrans.length,
+    leftOK, rightOK, leftC, rightC, consistency,
+    info: 'crop=' + cropHeightPct + '% pos=' + cropPosPct +
+          '% spacing=' + rowSpacingPx + 'px cellPx=' + cellPx.toFixed(1) +
+          ' ratio=' + ratio.toFixed(2)
+  };
+}
+
+function snapshotCamera() {
+  if (!videoReady) return;
+  const Vw = video.videoWidth;
+  const Vh = video.videoHeight;
+  const cropH = Math.round(Vh * cropHeightPct / 100);
+  const maxTop = Vh - cropH;
+  const cropTop = Math.round(maxTop * cropPosPct / 100);
+
+  if (processC.width !== Vw || processC.height !== cropH) {
+    processC.width = Vw;
+    processC.height = cropH;
+    overlay.width = Vw;
+    overlay.height = cropH;
+    camWrap.style.aspectRatio = Vw + ' / ' + cropH;
+  }
+  pctx.drawImage(video, 0, cropTop, Vw, cropH, 0, 0, Vw, cropH);
+}
+
+function drawGuidesOnOverlay(debug) {
+  const W = overlay.width, H = overlay.height;
+  ovctx.clearRect(0,0,W,H);
+  if (mode !== 'camera') {
+    ovctx.drawImage(processC, 0, 0, W, H);
+  }
+
+  if (debug && debug.yRow0 !== undefined && debug.yRow2 > 0) {
+    const yR0 = debug.yRow0, yR1 = debug.yRow1, yR2 = debug.yRow2;
+    const bandH = Math.max(4, Math.round((debug.rowH||30) * 0.5));
+
+    if (debug.thresholds) {
+      const th = debug.thresholds;
+      for (let x = 4; x < W-4; x += 3) {
+        const v0 = px(x, yR0);
+        ovctx.fillStyle = v0 < th.th0 ? 'rgba(255,60,60,0.55)' : 'rgba(0,100,255,0.4)';
+        ovctx.fillRect(x, yR0 - bandH/2, 3, bandH);
+      }
+      for (let x = 4; x < W-4; x += 3) {
+        const v1 = px(x, yR1);
+        ovctx.fillStyle = v1 < th.th1 ? 'rgba(255,60,60,0.55)' : 'rgba(0,100,255,0.4)';
+        ovctx.fillRect(x, yR1 - bandH/2, 3, bandH);
+      }
+      for (let x = 4; x < W-4; x += 3) {
+        const v2 = px(x, yR2);
+        ovctx.fillStyle = v2 < th.th2 ? 'rgba(255,60,60,0.55)' : 'rgba(0,100,255,0.4)';
+        ovctx.fillRect(x, yR2 - bandH/2, 3, bandH);
+      }
+    }
+
+    ovctx.strokeStyle = 'rgba(255,255,0,0.95)';
+    ovctx.lineWidth = 1;
+    ovctx.beginPath();
+    ovctx.moveTo(4, yR0); ovctx.lineTo(W-4, yR0);
+    ovctx.moveTo(4, yR1); ovctx.lineTo(W-4, yR1);
+    ovctx.moveTo(4, yR2); ovctx.lineTo(W-4, yR2);
+    ovctx.stroke();
+
+    ovctx.fillStyle = 'rgba(255,255,0,0.95)';
+    ovctx.font = 'bold 10px monospace';
+    ovctx.fillText('bit0-3', 6, yR0 - 4);
+    ovctx.fillText('bit4-7', 6, yR1 - 4);
+    ovctx.fillText('CLOCK',  6, yR2 - 4);
+  }
+
+  let refColor = 'red';
+  if (debug && debug.consistency !== undefined) {
+    if (debug.consistency >= 2) refColor = '#4f4';
+    else if (debug.consistency === 1) refColor = '#f80';
+  }
+  ovctx.fillStyle = refColor;
+  ovctx.fillRect(W/2 - LINE_THICKNESS/2, 0, LINE_THICKNESS, H);
+
+  if (debugOn && debug) {
+    if (debug.gridLines && debug.gridLines.length > 0) {
+      ovctx.strokeStyle = 'rgba(0,255,255,0.85)';
+      ovctx.lineWidth = 1;
+      ovctx.setLineDash([4,4]);
+      ovctx.beginPath();
+      for (const t of debug.gridLines) {
+        ovctx.moveTo(t, 0); ovctx.lineTo(t, H);
+      }
+      ovctx.stroke(); ovctx.setLineDash([]);
+    }
+    if (debug.refLeft !== undefined && debug.refRight !== undefined
+        && debug.refLeft !== null && debug.refRight !== null) {
+      ovctx.fillStyle = 'yellow';
+      ovctx.fillRect(debug.refLeft-1, 0, 3, H);
+      ovctx.fillStyle = 'orange';
+      ovctx.fillRect(debug.refRight-1, 0, 3, H);
+    }
+
+    // Točke levega soseda (rumene) – samo če showNeighbors
+    if (showNeighbors && debug.leftPoints) {
+      ovctx.lineWidth = Math.max(2, LINE_THICKNESS/3);
+      ovctx.strokeStyle = '#ff0';
+      for (const p of debug.leftPoints) {
+        ovctx.beginPath();
+        ovctx.arc(p.x, p.y, 4, 0, Math.PI*2);
+        ovctx.stroke();
+      }
+      ovctx.fillStyle = '#ff0';
+      ovctx.font = 'bold 9px monospace';
+      for (const p of debug.leftPoints) {
+        ovctx.fillText('L'+p.bit, p.x+6, p.y-4);
+      }
+    }
+
+    // Točke desnega soseda (modre) – samo če showNeighbors
+    if (showNeighbors && debug.rightPoints) {
+      ovctx.lineWidth = Math.max(2, LINE_THICKNESS/3);
+      ovctx.strokeStyle = '#4af';
+      for (const p of debug.rightPoints) {
+        ovctx.beginPath();
+        ovctx.arc(p.x, p.y, 4, 0, Math.PI*2);
+        ovctx.stroke();
+      }
+      ovctx.fillStyle = '#4af';
+      ovctx.font = 'bold 9px monospace';
+      for (const p of debug.rightPoints) {
+        ovctx.fillText('R'+p.bit, p.x+6, p.y-4);
+      }
+    }
+
+    // Točke centra (zelene)
+    if (debug.bitPoints) {
+      ovctx.lineWidth = Math.max(2, LINE_THICKNESS/3);
+      ovctx.strokeStyle = 'lime';
+      for (const p of debug.bitPoints) {
+        ovctx.beginPath();
+        ovctx.arc(p.x, p.y, 5, 0, Math.PI*2);
+        ovctx.stroke();
+      }
+      ovctx.fillStyle = 'lime';
+      ovctx.font = 'bold 10px monospace';
+      for (const p of debug.bitPoints) {
+        ovctx.fillText('b'+p.bit, p.x+7, p.y-6);
+      }
+    }
+
+    ovctx.strokeStyle = 'magenta';
+    ovctx.lineWidth = Math.max(2, LINE_THICKNESS/3);
+    ovctx.beginPath();
+    ovctx.arc(W/2, H/2, 12, 0, Math.PI*2);
+    ovctx.stroke();
+  }
+}
+
+function bitsStr(b) { let s=''; for (let i=7;i>=0;i--) s += (b>>i)&1; return s; }
+
+function setHeader(consistency, text, errText) {
+  hdr.classList.remove('c0','c1','c2','c3');
+  hdr.classList.add('c' + consistency);
+  headerVal.textContent = text;
+  headerErr.textContent = errText;
+}
+
+function update() {
+  if (mode === 'sim') {
+    const cIn = parseFloat($('coarse').value), fIn = parseFloat($('fine').value);
+    const P = cIn + fIn;
+    $('coarseVal').textContent = cIn.toFixed(0)+' mm';
+    $('fineVal').textContent = fIn.toFixed(2);
+
+    if (processC.width !== overlay.width || processC.height !== overlay.height) {
+      processC.width = overlay.width;
+      processC.height = overlay.height;
+    }
+    drawSimulator(P);
+    cacheFrame();
+    const r = readFrame();
+    drawGuidesOnOverlay(r);
+    if (r.ok && r.ratioOK) {
+      const cons = r.consistency;
+      setHeader(cons, r.mm.toFixed(2) + ' mm',
+                'Napaka: ' + (r.mm - P).toFixed(2) + ' mm  (' + cons + '/3)');
+      $('testOut').textContent =
+        VERSION + ' · SIMULATOR  konsistenca=' + cons + '/3\n' +
+        'proc ' + processC.width + 'x' + processC.height + '\n' +
+        (r.info||'') + '\n' +
+        'ratio=' + r.ratio.toFixed(3) + '  (OK, toleranca ±' + (RATIO_TOLERANCE*100) + '%)\n' +
+        'yRow0=' + r.yRow0 + '  yRow1=' + r.yRow1 + '  yRow2=' + r.yRow2 + '\n' +
+        'P=' + P.toFixed(2) + '  Pphys=' + (P+CODE_OFFSET).toFixed(2) + '\n' +
+        'bits=' + bitsStr(r.bits) + '  cRef=' + r.c + '\n' +
+        'levo c=' + r.leftC + (r.leftOK?' OK':' FAIL') +
+        '  desno c=' + r.rightC + (r.rightOK?' OK':' FAIL') + '\n' +
+        'δ=' + r.delta.toFixed(2) + '  mm=' + r.mm.toFixed(2) +
+        '  napaka=' + (r.mm - P).toFixed(2);
+    } else if (r.ok && !r.ratioOK) {
+      setHeader(0, '– mm', '⚠ Razmerje ' + r.ratio.toFixed(2));
+      $('testOut').textContent =
+        VERSION + ' · SIMULATOR – RAZMERJE NE USTREZA\n' +
+        'cellPx=' + r.cellPx.toFixed(1) + '  rowSpacing=' + rowSpacingPx +
+        '  ratio=' + r.ratio.toFixed(3) + '\n' +
+        'Dovoljeno območje: ' + (1-RATIO_TOLERANCE).toFixed(2) + ' – ' +
+        (1+RATIO_TOLERANCE).toFixed(2) + '\n\n' +
+        'Namig: velikost kvadratka po širini mora biti podobna razmaku pasov.\n' +
+        'Poskusi prilagoditi razmak pasov (rowSpacing) na vrednost cellPx.';
+    } else {
+      setHeader(0, '– mm', 'Napaka: –');
+      $('testOut').textContent = VERSION + ' · SIMULATOR – napaka\n' + (r.info||'') + '\n' + r.reason;
+    }
+  } else if (mode === 'image') {
+    cacheFrame();
+    const r = readFrame();
+    drawGuidesOnOverlay(r);
+    if (r.ok && r.ratioOK) {
+      setHeader(r.consistency, r.mm.toFixed(2) + ' mm',
+                'Napaka: –  (' + r.consistency + '/3)');
+      $('testOut').textContent =
+        VERSION + ' · SLIKA  konsistenca=' + r.consistency + '/3\n' +
+        'proc ' + processC.width + 'x' + processC.height + '\n' +
+        (r.info||'') + '\n' +
+        'ratio=' + r.ratio.toFixed(3) + '\n' +
+        'yRow0=' + r.yRow0 + '  yRow1=' + r.yRow1 + '  yRow2=' + r.yRow2 + '\n' +
+        'bits=' + bitsStr(r.bits) + '  cRef=' + r.c + '\n' +
+        'δ=' + r.delta.toFixed(2) + '  mm=' + r.mm.toFixed(2);
+    } else if (r.ok && !r.ratioOK) {
+      setHeader(0, '– mm', '⚠ Razmerje ' + r.ratio.toFixed(2));
+      $('testOut').textContent = VERSION + ' · SLIKA – RAZMERJE NE USTREZA\n' +
+        'ratio=' + r.ratio.toFixed(3) + '  cellPx=' + r.cellPx.toFixed(1) +
+        '  rowSpacing=' + rowSpacingPx;
+    } else {
+      setHeader(0, '– mm', 'Napaka: –');
+      $('testOut').textContent = VERSION + ' · SLIKA – napaka\n' + (r.info||'') + '\n' + r.reason;
+    }
+  } else if (videoReady) {
+    snapshotCamera();
+    cacheFrame();
+    const r = readFrame();
+    drawGuidesOnOverlay(r);
+    if (r.ok && r.ratioOK) {
+      setHeader(r.consistency, r.mm.toFixed(2) + ' mm',
+                'Napaka: –  (' + r.consistency + '/3)');
+      $('testOut').textContent =
+        VERSION + ' · KAMERA OK  konsistenca=' + r.consistency + '/3\n' +
+        'video ' + video.videoWidth + 'x' + video.videoHeight +
+        '  crop ' + processC.width + 'x' + processC.height + '\n' +
+        (r.info||'') + '\n' +
+        'ratio=' + r.ratio.toFixed(3) + '  OK\n' +
+        'yRow0=' + r.yRow0 + '  yRow1=' + r.yRow1 + '  yRow2=' + r.yRow2 + '\n' +
+        'th0=' + r.thresholds.th0.toFixed(0) +
+        '  th1=' + r.thresholds.th1.toFixed(0) +
+        '  th2=' + r.thresholds.th2.toFixed(0) + '\n' +
+        'prehodi=' + r.transitions.length + '  mreža=' + r.numCells + ' celic\n' +
+        'najd.niz=' + r.bestLen + '  cRef=' + r.c + '\n' +
+        'bits=' + bitsStr(r.bits) + '\n' +
+        'levo c=' + r.leftC + (r.leftOK?' OK':' FAIL') +
+        '  desno c=' + r.rightC + (r.rightOK?' OK':' FAIL') + '\n' +
+        'δ=' + r.delta.toFixed(2) + '  mm=' + r.mm.toFixed(2);
+    } else if (r.ok && !r.ratioOK) {
+      setHeader(0, '– mm', '⚠ Razmerje ' + r.ratio.toFixed(2));
+      $('testOut').textContent =
+        VERSION + ' · KAMERA – RAZMERJE NE USTREZA\n' +
+        'video ' + video.videoWidth + 'x' + video.videoHeight +
+        '  crop ' + processC.width + 'x' + processC.height + '\n' +
+        'cellPx=' + r.cellPx.toFixed(1) + '  rowSpacing=' + rowSpacingPx +
+        '  ratio=' + r.ratio.toFixed(3) + '\n' +
+        'Dovoljeno: ' + (1-RATIO_TOLERANCE).toFixed(2) + ' – ' +
+        (1+RATIO_TOLERANCE).toFixed(2) + '\n\n' +
+        'Razlog: širina celice v pikslih (' + r.cellPx.toFixed(1) + ') se močno\n' +
+        'razlikuje od razmaka pasov (' + rowSpacingPx + '). To pomeni, da sistem\n' +
+        'bere napačne prehode ali da je razmak pasov narobe nastavljen.\n\n' +
+        'Predlagano: nastavi Razmak pasov na ' + Math.round(r.cellPx) + ' px.';
+    } else {
+      setHeader(0, '– mm', 'Napaka: –');
+      $('testOut').textContent =
+        VERSION + ' · KAMERA – napaka\n' +
+        'video ' + video.videoWidth + 'x' + video.videoHeight +
+        '  crop ' + processC.width + 'x' + processC.height + '\n' +
+        (r.info||'') + '\n' +
+        'Razlog: ' + (r.reason || '?') + '\n' +
+        'yRow0=' + r.yRow0 + '  yRow1=' + r.yRow1 + '  yRow2=' + r.yRow2;
+    }
+  }
+  requestAnimationFrame(update);
+}
+
+function paramsToName() {
+  const now = new Date();
+  const ts = now.toISOString().replace(/[:.]/g,'-').slice(0,19);
+  return 'v25_ch'+cropHeightPct+'_cp'+cropPosPct+'_rs'+rowSpacingPx+
+         '_th'+manualTh+'_off'+thOffset+'_otsu'+(useOtsu?1:0)+'_'+orientation+'_'+ts+'.jpg';
+}
+function parseParamsFromName(name) {
+  const m = name.match(/ch(\d+)_cp(\d+)_rs(\d+)_th(\d+)_off(-?\d+)_otsu(\d+)_([hv])_/);
+  if (!m) return null;
+  return {
+    cropHeightPct: parseInt(m[1]),
+    cropPosPct: parseInt(m[2]),
+    rowSpacingPx: parseInt(m[3]),
+    manualTh: parseInt(m[4]),
+    thOffset: parseInt(m[5]),
+    useOtsu: m[6] === '1',
+    orientation: m[7]
+  };
+}
+function applyParams(p) {
+  cropHeightPct = p.cropHeightPct;
+  cropPosPct = p.cropPosPct;
+  rowSpacingPx = p.rowSpacingPx;
+  manualTh = p.manualTh;
+  thOffset = p.thOffset;
+  useOtsu = p.useOtsu;
+  orientation = p.orientation;
+  $('cropHeight').value = cropHeightPct;
+  $('cropHeightVal').textContent = cropHeightPct + ' %';
+  $('cropPos').value = cropPosPct;
+  $('cropPosVal').textContent = cropPosPct + ' %';
+  $('rowSpacing').value = rowSpacingPx;
+  $('rowSpacingVal').textContent = rowSpacingPx + ' px';
+  $('thSlider').value = manualTh;
+  $('thVal').textContent = manualTh;
+  $('thOffset').value = thOffset;
+  $('thOffsetVal').textContent = (thOffset > 0 ? '+' : '') + thOffset;
+  $('otsuChk').checked = useOtsu;
+  $('orientBtn').textContent = orientation === 'h' ? 'Vodoravno' : 'Navpično';
+  updateVisibility();
+  updateCrop();
+  saveSettings();
+}
+
+function updateCrop() {
+  video.style.objectPosition = 'center ' + cropPosPct + '%';
+}
+
+function updateVisibility() {
+  document.querySelectorAll('.simOnly').forEach(el => {
+    if (mode === 'sim') el.classList.remove('hidden');
+    else el.classList.add('hidden');
+  });
+  document.querySelectorAll('.manualTh').forEach(el => {
+    if (useOtsu) el.classList.add('hidden');
+    else el.classList.remove('hidden');
+  });
+}
+
+function saveJPG() {
+  const name = paramsToName();
+  processC.toBlob(b => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(b);
+    a.download = name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    statusEl.textContent = 'Shranjeno: ' + name;
+  }, 'image/jpeg', 0.92);
+}
+function loadJPG(file) {
+  const fileName = file.name;
+  const params = parseParamsFromName(fileName);
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      processC.width = img.width;
+      processC.height = img.height;
+      overlay.width = img.width;
+      overlay.height = img.height;
+      camWrap.style.aspectRatio = img.width + ' / ' + img.height;
+      pctx.drawImage(img, 0, 0);
+      video.style.opacity = 0;
+      let msg = 'Naložena slika ' + img.width + '×' + img.height;
+      if (params) { applyParams(params); msg += '  Parametri obnovljeni.'; }
+      mode = 'image';
+      updateVisibility();
+      statusEl.textContent = msg;
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function exportA4() {
+  const DPI = 300, PPMM = DPI/25.4;
+  const W_PX = Math.round(297*PPMM), H_PX = Math.round(210*PPMM);
+  const cvs = document.createElement('canvas');
+  cvs.width = W_PX; cvs.height = H_PX;
+  const ctx = cvs.getContext('2d');
+  ctx.fillStyle = 'white'; ctx.fillRect(0,0,W_PX,H_PX);
+  const M = 10*PPMM, CELL_PX = 5*PPMM;
+  const N = 53, stripStarts = [70,335,600,865], top = 16*PPMM;
+  ctx.fillStyle = '#222'; ctx.font = `bold ${4*PPMM}px sans-serif`;
+  ctx.fillText('Premerka ' + VERSION, M, 6*PPMM);
+  ctx.font = `${2.5*PPMM}px sans-serif`; ctx.fillStyle = '#555';
+  ctx.fillText('prikaz 0–1000 mm (koda 100–1100 mm)', M, 11*PPMM);
+  stripStarts.forEach((sMM, idx) => {
+    const y0 = top + idx*(26+6)*PPMM;
+    if (y0 + 26*PPMM > H_PX - M) return;
+    const c0 = sMM/5;
+    ctx.fillStyle = '#000'; ctx.font = `bold ${3.5*PPMM}px monospace`;
+    ctx.fillText(`Trak ${idx+1}:  ${sMM-100} … ${sMM-100+N*5} mm`, M, y0+4*PPMM);
+    const yc = y0 + 6*PPMM;
+    for (let i = 0; i < N; i++) {
+      const col = c0+i, x = M + i*CELL_PX;
+      ctx.fillStyle = DB[col & 0xFF] ? 'black' : 'white';
+      ctx.fillRect(x, yc, CELL_PX, CELL_PX);
+      ctx.fillStyle = DB[(col+4) & 0xFF] ? 'black' : 'white';
+      ctx.fillRect(x, yc+CELL_PX, CELL_PX, CELL_PX);
+      ctx.fillStyle = (col & 1) ? 'white' : 'black';
+      ctx.fillRect(x, yc+2*CELL_PX, CELL_PX, CELL_PX);
+    }
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+    ctx.strokeRect(M+0.5, yc+0.5, N*CELL_PX, 3*CELL_PX);
+  });
+  cvs.toBlob(b => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(b);
+    a.download = 'premerka-' + VERSION + '-' + new Date().toISOString().slice(0,10)+'.jpg';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    statusEl.textContent = 'Izvoženo';
+  }, 'image/jpeg', 0.95);
+}
+
+async function listCameras() {
+  try {
+    const tmp = await navigator.mediaDevices.getUserMedia({ video:true });
+    tmp.getTracks().forEach(t=>t.stop());
+    const devs = await navigator.mediaDevices.enumerateDevices();
+    const cams = devs.filter(d => d.kind === 'videoinput');
+    const sel = $('camSelect'); sel.innerHTML = '';
+    cams.forEach((c,i) => {
+      const o = document.createElement('option');
+      o.value = c.deviceId;
+      o.textContent = c.label || ('Kamera '+(i+1));
+      sel.appendChild(o);
+    });
+    if (cams.length > 0) {
+      const pref = cams.find(c => /back|rear|zadnja/i.test(c.label)) || cams[cams.length-1];
+      currentDeviceId = pref.deviceId;
+      sel.value = currentDeviceId;
+    }
+    sel.onchange = () => { currentDeviceId = sel.value; restartCamera(); };
+  } catch (e) { statusEl.textContent = 'Napaka: '+e.message; }
+}
+async function startCamera() {
+  try {
+    const cons = { video: currentDeviceId
+      ? { deviceId:{exact:currentDeviceId}, width:{ideal:1920}, height:{ideal:1080} }
+      : { facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080} }
+    };
+    stream = await navigator.mediaDevices.getUserMedia(cons);
+    video.srcObject = stream;
+    await video.play();
+    statusEl.textContent = 'Kamera OK';
+    video.style.opacity = 1;
+  } catch (e) { statusEl.textContent = 'Napaka: '+e.message; }
+}
+function stopCamera() { if (stream) { stream.getTracks().forEach(t=>t.stop()); stream=null; } videoReady = false; }
+async function restartCamera() { stopCamera(); await startCamera(); }
+
+function toggleMode() {
+  if (mode === 'camera') {
+    mode = 'sim'; stopCamera();
+    $('toggle').textContent = 'Na kamero';
+    statusEl.textContent = 'Simulator';
+    video.style.opacity = 0;
+    const Vw = 1280, Vh = 720;
+    const cropH = Math.round(Vh * cropHeightPct / 100);
+    processC.width = Vw; processC.height = cropH;
+    overlay.width = Vw; overlay.height = cropH;
+    camWrap.style.aspectRatio = Vw + ' / ' + cropH;
+  } else {
+    mode = 'camera';
+    $('toggle').textContent = 'Na simulator';
+    startCamera();
+  }
+  updateVisibility();
+}
+function toggleOrientation() {
+  orientation = orientation === 'h' ? 'v' : 'h';
+  $('orientBtn').textContent = orientation === 'h' ? 'Vodoravno' : 'Navpično';
+  saveSettings();
+}
+
+function onVideoMeta() {
+  const W = video.videoWidth || 1280;
+  const H = video.videoHeight || 720;
+  if (W < 10 || H < 10) return;
+  videoReady = true;
+  updateCrop();
+  statusEl.textContent = 'Video ' + W + '×' + H + '  crop ' + cropHeightPct + '%';
+}
+
+// Init
+loadSettings();
+overlay.width = 1280; overlay.height = 320;
+processC.width = 1280; processC.height = 320;
+
+$('toggle').onclick = toggleMode;
+$('exportBtn').onclick = exportA4;
+$('orientBtn').onclick = toggleOrientation;
+$('saveBtn').onclick = saveJPG;
+$('loadBtn').onclick = () => fileInput.click();
+fileInput.onchange = e => { if (e.target.files[0]) loadJPG(e.target.files[0]); };
+
+$('cropHeight').oninput = e => {
+  cropHeightPct = parseInt(e.target.value);
+  $('cropHeightVal').textContent = cropHeightPct + ' %';
+  saveSettings();
+};
+$('cropPos').oninput = e => {
+  cropPosPct = parseInt(e.target.value);
+  $('cropPosVal').textContent = cropPosPct + ' %';
+  updateCrop();
+  saveSettings();
+};
+$('rowSpacing').oninput = e => {
+  rowSpacingPx = parseInt(e.target.value);
+  $('rowSpacingVal').textContent = rowSpacingPx + ' px';
+  saveSettings();
+};
+$('coarse').oninput = e => { $('coarseVal').textContent = e.target.value + ' mm'; };
+$('fine').oninput = e => { $('fineVal').textContent = parseFloat(e.target.value).toFixed(2); };
+$('thSlider').oninput = e => { manualTh = parseInt(e.target.value); $('thVal').textContent = manualTh; saveSettings(); };
+$('thOffset').oninput = e => {
+  thOffset = parseInt(e.target.value);
+  $('thOffsetVal').textContent = (thOffset > 0 ? '+' : '') + thOffset;
+  saveSettings();
+};
+$('otsuChk').onchange = e => { useOtsu = e.target.checked; updateVisibility(); saveSettings(); };
+$('showNeighborsChk').onchange = e => { showNeighbors = e.target.checked; saveSettings(); };
+
+video.addEventListener('loadedmetadata', onVideoMeta);
+video.addEventListener('loadeddata', onVideoMeta);
+video.addEventListener('playing', onVideoMeta);
+
+updateVisibility();
+listCameras().then(() => startCamera());
+updateCrop();
+requestAnimationFrame(update);
+</script>
+</body>
+</html>
